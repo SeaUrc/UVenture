@@ -79,8 +79,8 @@ export default function TabTwoScreen() {
           initialRegion={{
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
+            latitudeDelta: 0.001,
+            longitudeDelta: 0.001,
           }}
           showsUserLocation={true}
           showsMyLocationButton={true}

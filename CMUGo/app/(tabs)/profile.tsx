@@ -55,7 +55,7 @@ export default function ProfileScreen() {
         throw new Error('Failed to upload image');
       }
       // Optionally handle response data here
-    } catch (error) {
+    } catch (error: any) {
       alert('Image upload failed: ' + error.message);
     }
   };
