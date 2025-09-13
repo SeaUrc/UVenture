@@ -20,11 +20,12 @@ type LocationData = {
   owner_count: number;
   owned_since: string;
   strongest_owner_id: number;
+  can_join: boolean;
 };
 
 type ProfileData = {
   username: string;
-  team: string;
+  team: number;
   image: string;
   strength?: number;
   wins?: number;
@@ -41,14 +42,18 @@ type Sparkle = {
 };
 
 // Mock enemy avatars based on team colors
-const getEnemyAvatar = (teamColor: string) => {
-  const avatarMap = {
-    '#FF0000': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png',
-    '#0000FF': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png',
-    '#00FF00': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png',
-    '#FFFF00': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png',
+const getEnemyAvatar = (teamId: string | number) => {
+  const avatarMap: { [key: string]: string } = {
+    '1': '../assets/images/cmulogos/scs.png',    // Team 1
+    '2': '../assets/images/cmulogos/cit.png',    // Team 2  
+    '3': '../assets/images/cmulogos/dietrich.png',    // Team 3
+    '4': '../assets/images/cmulogos/cfa.png',    // Team 4
+    '5': '../assets/images/cmulogos/mcs.jpg',    // Team 5
+    '6': '../assets/images/cmulogos/tepper.jpg',    // Team 6  
+    '7': '../assets/images/cmulogos/bxa.jpeg',    // Team 7
+    '8': '../assets/images/cmulogos/is.png',    // Team 8
   };
-  return avatarMap[teamColor] || 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png';
+  return avatarMap[String(teamId)] || '../assets/images/icon.png';
 };
 
 const BATTLE_COOLDOWN_MINUTES = 1;
@@ -81,6 +86,59 @@ export default function BattleArenaScreen() {
   // Auth state
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
+  
+  // Join arena state
+  const [canJoinArena, setCanJoinArena] = useState(false);
+  const [hasJoinedArena, setHasJoinedArena] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  
+  const [buttonPadding, setButtonPadding] = useState({
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0
+});
+
+
+  const [buttonPosition] = useState({
+  x: new Animated.Value(0),
+  y: new Animated.Value(0)
+});
+const [isButtonMoving, setIsButtonMoving] = useState(false);
+
+// Add this function to start button movement when battle begins
+const startButtonMovement = () => {
+  setIsButtonMoving(true);
+  animateButtonMovement();
+};
+
+
+// Add this function to handle the slow button movement
+const animateButtonMovement = () => {
+  if (!battleStarted || battleResult) {
+    setIsButtonMoving(false);
+    return;
+  }
+
+  // Generate random padding values to move the button around
+  const maxPadding = 80; // Maximum pixels to move in any direction
+  const randomTop = Math.floor(Math.random() * maxPadding);
+  const randomRight = Math.floor(Math.random() * maxPadding);
+  const randomBottom = Math.floor(Math.random() * maxPadding);
+  const randomLeft = Math.floor(Math.random() * maxPadding);
+
+  setButtonPadding({
+    top: randomTop,
+    right: randomRight,
+    bottom: randomBottom,
+    left: randomLeft
+  });
+
+  // Continue moving if battle is still active
+  if (battleStarted && !battleResult) {
+    setTimeout(() => animateButtonMovement(), 1000 + Math.random() * 2000); // Random pause 1-3 seconds
+  }
+};
 
   useEffect(() => {
     const getAuthData = async () => {
@@ -104,6 +162,25 @@ export default function BattleArenaScreen() {
     }
   }, [id, userToken, userId]);
 
+  // Check if user can join arena when location data or user profile changes
+  useEffect(() => {
+    if (locationData && userProfile) {
+      // User can join if:
+      // 1. Their team owns the location
+      // 2. They're not already the strongest owner  
+      // 3. The location allows joining (can_join is true)
+      const sameTeam = locationData.owner_team === userProfile.team;
+      const notStrongestOwner = locationData.strongest_owner_id !== userId;
+      const canJoinLocation = locationData.can_join;
+      
+      setCanJoinArena(sameTeam && notStrongestOwner && canJoinLocation);
+      setHasJoinedArena(!notStrongestOwner); // If they are the strongest owner, they've "joined"
+    } else {
+      setCanJoinArena(false);
+      setHasJoinedArena(false);
+    }
+  }, [locationData, userProfile, userId]);
+
   // Reset tap count when battle starts/ends
   useEffect(() => {
     if (!battleStarted || battleResult) {
@@ -111,6 +188,41 @@ export default function BattleArenaScreen() {
       setSparkles([]);
     }
   }, [battleStarted, battleResult]);
+
+  // Handle joining the arena
+  const handleJoinArena = async () => {
+    if (!userToken || !id || isJoining) return;
+    
+    setIsJoining(true);
+    
+    try {
+      const response = await fetch(`${databaseUrl}/api/interactions/become_owner`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`,
+        },
+        body: JSON.stringify({
+          id: parseInt(id as string),
+        }),
+      });
+
+      if (response.ok) {
+        // Success - refresh location data to show updated owner count
+        await fetchLocationData();
+        setHasJoinedArena(true);
+        Alert.alert('Success!', 'You have joined the arena as a defender!');
+      } else {
+        const errorData = await response.json();
+        Alert.alert('Error', errorData.error || 'Failed to join arena');
+      }
+    } catch (error) {
+      console.error('Error joining arena:', error);
+      Alert.alert('Error', 'Failed to join arena. Please try again.');
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   // Get button color based on tap coun
 
@@ -120,47 +232,36 @@ export default function BattleArenaScreen() {
   
   const newSparkles: Sparkle[] = [];
   
-  // Slower, more gradual color progression based on tap count
-  const getColorWave = (tapIndex: number) => {
-    const totalTaps = tapCount;
-    const waveColors = [
-      // Green phase (taps 0-9)
-      '#00FF00', '#32FF32', '#65FF65', '#7FFF00', '#9AFF9A',
-      '#ADFF2F', '#CCFF99', '#98FB98', '#90EE90', '#00FF7F',
-      // Yellow-Green phase (taps 10-19)
-      '#7FFF00', '#CCFF00', '#DFFF00', '#E6FF00', '#EEFF00',
-      '#F4FF00', '#FAFF00', '#FFFF00', '#FFFF32', '#FFFF65',
-      // Yellow phase (taps 20-29)
-      '#FFFF00', '#FFFA00', '#FFF500', '#FFF000', '#FFEB00',
-      '#FFE600', '#FFE100', '#FFDC00', '#FFD700', '#FFD200',
-      // Orange phase (taps 30-39)
-      '#FFCD00', '#FFC800', '#FFC300', '#FFBE00', '#FFB900',
-      '#FFB400', '#FFAF00', '#FFAA00', '#FFA500', '#FFA000',
-      // Red-Orange phase (taps 40-49)
-      '#FF9B00', '#FF9600', '#FF9100', '#FF8C00', '#FF8700',
-      '#FF8200', '#FF7D00', '#FF7800', '#FF7300', '#FF6E00',
-      // Red phase (taps 50+)
-      '#FF6900', '#FF6400', '#FF5F00', '#FF5A00', '#FF5500',
-      '#FF5000', '#FF4B00', '#FF4600', '#FF4100', '#FF3C00',
-      '#FF3700', '#FF3200', '#FF2D00', '#FF2800', '#FF2300',
-      '#FF1E00', '#FF1900', '#FF1400', '#FF0F00', '#FF0A00', '#FF0000'
+  // Realistic soldering spark colors - orange/red spectrum
+  const getRealisticSparkColor = () => {
+    const sparkColors = [
+      '#FF4500', // Orange red
+      '#FF6347', // Tomato
+      '#FF7F50', // Coral
+      '#FF8C00', // Dark orange
+      '#FFA500', // Orange
+      '#FFB347', // Peach
+      '#FF6B35', // Red orange
+      '#FF4500', // Orange red
+      '#FF2D00', // Red orange
+      '#FF1A00', // Bright red
+      '#FF0000', // Pure red
+      '#FF3300', // Bright red
     ];
     
-    // Make progression slower - divide by 3 to make it take 3x more taps to progress
-    const slowedTapCount = Math.floor(totalTaps / 3);
-    const colorIndex = Math.min(slowedTapCount, waveColors.length - 1);
-    return waveColors[colorIndex];
+    return sparkColors[Math.floor(Math.random() * sparkColors.length)];
   };
   
-  for (let i = 0; i < count; i++) {
-    // Each sparkle gets the current wave color
-    const baseWaveColor = getColorWave(i);
-    const sparkleColor = addNeonIntensity(baseWaveColor);
+  // Create many more sparks
+  const sparkCount = Math.min(5 + Math.floor(tapCount * 2), 15);
+  
+  for (let i = 0; i < sparkCount; i++) {
+    const sparkleColor = getRealisticSparkColor();
     
     const sparkle: Sparkle = {
       id: sparkleIdCounter + i,
-      x: new Animated.Value(0), // Start at center (button position)
-      y: new Animated.Value(0), // Start at center (button position)
+      x: new Animated.Value(0),
+      y: new Animated.Value(0),
       opacity: new Animated.Value(1),
       scale: new Animated.Value(0.1),
       color: sparkleColor,
@@ -168,99 +269,105 @@ export default function BattleArenaScreen() {
     
     newSparkles.push(sparkle);
     
-    // Calculate direction - sparks expand outward in all directions from center
-    const angle = (Math.PI * 2 * i) / count; // Evenly distribute around circle
-    const randomAngleVariation = (Math.random() - 0.5) * 0.3; // Small random variation
-    const finalAngle = angle + randomAngleVariation;
+    // Create water spray pattern with more horizontal momentum
+    const angle = (Math.PI * 2 * Math.random());
+    const angleVariation = (Math.random() - 0.5) * 0.6; // Increased variation
+    const finalAngle = angle + angleVariation;
     
-    // Distance sparks travel outward from button center
-    const baseDistance = 60 + Math.random() * 80; // 60-140px from center
-    const targetX = Math.cos(finalAngle) * baseDistance;
-    const targetY = Math.sin(finalAngle) * baseDistance;
+    // Increased horizontal distance, still more vertical
+    const baseDistance = 40 + Math.random() * 100; // 40-140px from center
+    const targetX = Math.cos(finalAngle) * baseDistance * 0.6; // Increased horizontal (was 0.3)
+    const targetY = Math.sin(finalAngle) * baseDistance * 1.2; // Slightly less vertical (was 1.5)
     
-    // Gravity effect - sparks fall down after expanding
-    const finalY = targetY + 40 + Math.random() * 60;
+    // Water spray fall
+    const gravityY = targetY + 50 + Math.random() * 80;
     
     Animated.parallel([
-      // X movement - expand outward from center
+      // X movement - increased horizontal momentum
       Animated.sequence([
-        // Fast initial burst outward
+        // More horizontal drift
         Animated.timing(sparkle.x, {
-          toValue: targetX * 0.6,
-          duration: 120,
+          toValue: targetX * 0.7, // Increased from 0.5
+          duration: 80, // Faster initial movement
           useNativeDriver: true,
         }),
-        // Continue expanding
+        // Continue with more horizontal momentum
         Animated.timing(sparkle.x, {
           toValue: targetX,
-          duration: 180,
+          duration: 120, // Faster
           useNativeDriver: true,
         }),
-        // Slight drift
+        // Final drift with more horizontal spread
         Animated.timing(sparkle.x, {
-          toValue: targetX + (Math.random() - 0.5) * 20,
-          duration: 400,
+          toValue: targetX + (Math.random() - 0.5) * 20, // Increased from 10
+          duration: 350, // Faster
           useNativeDriver: true,
         }),
       ]),
-      // Y movement - expand outward then fall with gravity
+      // Y movement - water spray pattern
       Animated.sequence([
-        // Fast initial burst outward
+        // Initial upward burst (like water spray)
         Animated.timing(sparkle.y, {
-          toValue: targetY * 0.6,
-          duration: 120,
+          toValue: targetY * 0.4,
+          duration: 80,
           useNativeDriver: true,
         }),
-        // Continue expanding
+        // Peak height
         Animated.timing(sparkle.y, {
-          toValue: targetY,
-          duration: 180,
+          toValue: targetY * 0.8,
+          duration: 120,
           useNativeDriver: true,
         }),
         // Gravity fall
         Animated.timing(sparkle.y, {
-          toValue: finalY,
+          toValue: gravityY,
           duration: 500,
           useNativeDriver: true,
         }),
       ]),
-      // Scale animation - sparks grow then shrink
+      // Scale animation - smaller sparks with aura effect
       Animated.sequence([
         Animated.spring(sparkle.scale, {
-          toValue: 2.5 + Math.random() * 1.5,
-          tension: 300,
+          toValue: 0.6 + Math.random() * 0.3,
+          tension: 400,
           friction: 4,
           useNativeDriver: true,
         }),
         Animated.timing(sparkle.scale, {
           toValue: 0,
-          duration: 600,
+          duration: 400,
           useNativeDriver: true,
         }),
       ]),
-      // Neon flicker effect
+      // Opacity - bright flash with aura effect
       Animated.sequence([
-        Animated.delay(30),
+        // Initial bright flash
+        Animated.timing(sparkle.opacity, {
+          toValue: 1,
+          duration: 30,
+          useNativeDriver: true,
+        }),
+        // Flicker effect with aura
         Animated.loop(
           Animated.sequence([
             Animated.timing(sparkle.opacity, {
-              toValue: 0.3,
-              duration: 50,
+              toValue: 0.4,
+              duration: 20,
               useNativeDriver: true,
             }),
             Animated.timing(sparkle.opacity, {
               toValue: 1,
-              duration: 50,
+              duration: 25,
               useNativeDriver: true,
             }),
             Animated.timing(sparkle.opacity, {
-              toValue: 0.5,
-              duration: 40,
+              toValue: 0.6,
+              duration: 15,
               useNativeDriver: true,
             }),
             Animated.timing(sparkle.opacity, {
-              toValue: 1,
-              duration: 40,
+              toValue: 0.9,
+              duration: 20,
               useNativeDriver: true,
             }),
           ]),
@@ -269,50 +376,42 @@ export default function BattleArenaScreen() {
         // Final fade
         Animated.timing(sparkle.opacity, {
           toValue: 0,
-          duration: 300,
+          duration: 250,
           useNativeDriver: true,
         }),
       ]),
     ]).start();
   }
   
-  setSparkleIdCounter(prev => prev + count);
+  setSparkleIdCounter(prev => prev + sparkCount);
   setSparkles(prev => [...prev, ...newSparkles]);
   
   setTimeout(() => {
     setSparkles(prev => 
       prev.filter(s => !newSparkles.some(ns => ns.id === s.id))
     );
-  }, 1500);
+  }, 1000);
 };
 
+// Update button color progression
 const getButtonColor = () => {
   const colors = [
-    // Green phase
-    '#00FF00', '#32FF32', '#65FF65', '#7FFF00', '#9AFF9A',
-    '#ADFF2F', '#CCFF99', '#98FB98', '#90EE90', '#00FF7F',
-    // Yellow-Green phase
-    '#7FFF00', '#CCFF00', '#DFFF00', '#E6FF00', '#EEFF00',
-    '#F4FF00', '#FAFF00', '#FFFF00', '#FFFF32', '#FFFF65',
-    // Yellow phase
+    // Yellow phase (taps 0-9)
     '#FFFF00', '#FFFA00', '#FFF500', '#FFF000', '#FFEB00',
     '#FFE600', '#FFE100', '#FFDC00', '#FFD700', '#FFD200',
-    // Orange phase
+    // Orange phase (taps 10-19)
     '#FFCD00', '#FFC800', '#FFC300', '#FFBE00', '#FFB900',
     '#FFB400', '#FFAF00', '#FFAA00', '#FFA500', '#FFA000',
-    // Red-Orange phase
+    // Red phase (taps 20+)
     '#FF9B00', '#FF9600', '#FF9100', '#FF8C00', '#FF8700',
     '#FF8200', '#FF7D00', '#FF7800', '#FF7300', '#FF6E00',
-    // Red phase
     '#FF6900', '#FF6400', '#FF5F00', '#FF5A00', '#FF5500',
     '#FF5000', '#FF4B00', '#FF4600', '#FF4100', '#FF3C00',
     '#FF3700', '#FF3200', '#FF2D00', '#FF2800', '#FF2300',
     '#FF1E00', '#FF1900', '#FF1400', '#FF0F00', '#FF0A00', '#FF0000'
   ];
   
-  // Same slower progression - divide by 3
-  const slowedTapCount = Math.floor(tapCount / 3);
-  const colorIndex = Math.min(slowedTapCount, colors.length - 1);
+  const colorIndex = Math.min(tapCount, colors.length - 1);
   return colors[colorIndex];
 };
 
@@ -531,7 +630,12 @@ const addNeonIntensity = (color: string) => {
     setBattleResult(null);
     setTapCount(0);
     setSparkles([]);
-  };
+    
+    // Start button movement after a brief delay
+    setTimeout(() => {
+        startButtonMovement();
+    }, 100);
+    };
 
   const calculateDamage = (attackerStrength: number, defenderStrength: number): number => {
   // Ensure strength values are within valid range (1-100)
@@ -860,8 +964,8 @@ const addNeonIntensity = (color: string) => {
         }),
       });
 
-      console.log('Become owner response status:', response.status);
-
+      // console.log('Become owner response status:', response.status);
+      // console.log('Res', response.json());
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Become owner error response:', errorText);
@@ -934,38 +1038,40 @@ const addNeonIntensity = (color: string) => {
   };
 
   const getEnemyDisplayInfo = () => {
-    if (strongestOwnerProfile) {
-      return {
-        name: strongestOwnerProfile.username,
-        image: strongestOwnerProfile.image 
-          ? `data:image/png;base64,${strongestOwnerProfile.image}` 
-          : getEnemyAvatar(locationData?.owner_team_color || '#FF0000'),
-        team: strongestOwnerProfile.team,
-      };
-    }
-    
+  if (strongestOwnerProfile) {
     return {
-      name: locationData?.owner_team_name || 'Enemy Team',
-      image: getEnemyAvatar(locationData?.owner_team_color || '#FF0000'),
-      team: locationData?.owner_team_name || 'Unknown Team',
+      name: strongestOwnerProfile.username,
+      image: strongestOwnerProfile.image 
+        ? `data:image/png;base64,${strongestOwnerProfile.image}` 
+        : getEnemyAvatar(strongestOwnerProfile.team), 
+      team: strongestOwnerProfile.team,
     };
+  }
+  
+  return {
+    name: locationData?.owner_team_name || 'Enemy Team',
+    image: getEnemyAvatar(locationData?.owner_team || '1'), 
+    team: locationData?.owner_team_name || 'Unknown Team',
   };
+};
 
   const userInfo = getUserDisplayInfo();
   const enemyInfo = getEnemyDisplayInfo();
 
   // Calculate animated transform for attack button
   const animatedButtonStyle = {
-    transform: [
-      { scale: buttonScale },
-      { 
-        rotate: buttonRotation.interpolate({
-          inputRange: [-1, 1],
-          outputRange: ['-5.73deg', '5.73deg'] // -0.1 to 0.1 radians converted to degrees
-        })
-      }
-    ]
-  };
+  transform: [
+    { translateX: buttonPosition.x },
+    { translateY: buttonPosition.y },
+    { scale: buttonScale },
+    { 
+      rotate: buttonRotation.interpolate({
+        inputRange: [-1, 1],
+        outputRange: ['-5.73deg', '5.73deg']
+      })
+    }
+  ]
+};
 
   return (
     <View style={styles.container}>
@@ -1042,58 +1148,91 @@ const addNeonIntensity = (color: string) => {
             <Text style={styles.resultSubtext}>
               Health Remaining: {playerHealth}/100
             </Text>
-            <Text style={styles.resultSubtext}>
-              Total Attacks: {tapCount}
-            </Text>
           </View>
         )}
       </View>
 
       {/* Battle Controls */}
       <View style={styles.controls}>
+        {/* Join Arena Button - Show when user can join */}
+        {canJoinArena && !hasJoinedArena && !battleStarted && (
+          <TouchableOpacity 
+            style={[styles.joinButton, isJoining && styles.joinButtonDisabled]} 
+            onPress={handleJoinArena}
+            disabled={isJoining}
+          >
+            <Text style={styles.joinButtonText}>
+              {isJoining ? 'Joining...' : 'Join Arena'}
+            </Text>
+          </TouchableOpacity>
+        )}
+        
         {battleResult || !battleStarted ? (
           <TouchableOpacity style={styles.exitButton} onPress={exitBattle}>
             <Text style={styles.exitButtonText}>Exit Arena</Text>
           </TouchableOpacity>
         ) : (
-          <View style={styles.attackButtonContainer}>
+          <View style={[
+  styles.attackButtonContainer,
+  {
+    paddingTop: buttonPadding.top,
+    paddingRight: buttonPadding.right,
+    paddingBottom: buttonPadding.bottom,
+    paddingLeft: buttonPadding.left,
+  }
+]}>
         
     
-            {/* Sparkles with different shapes */}
+            {/* Sparkles with realistic soldering effects and aura */}
             {sparkles.map((sparkle, index) => {
-                // Create different spark shapes with random rotation
-                const sparkType = index % 4;
-                const randomRotation = Math.random() * 360; // Random rotation between 0-360 degrees
-                
-                return (
-                    <Animated.View
-                    key={sparkle.id}
+              const sparkType = index % 5;
+              const randomRotation = Math.random() * 360;
+              
+              return (
+                <Animated.View
+                  key={sparkle.id}
+                  style={[
+                    sparkType === 0 ? styles.sparkDot : 
+                    sparkType === 1 ? styles.sparkLine : 
+                    sparkType === 2 ? styles.sparkSlash : 
+                    sparkType === 3 ? styles.sparkBackslash : 
+                    styles.sparkCross,
+                    {
+                      backgroundColor: sparkle.color,
+                      shadowColor: sparkle.color,
+                      shadowOpacity: 1, // Full opacity for aura effect
+                      shadowRadius: 20, // Large aura radius
+                      shadowOffset: { width: 0, height: 0 },
+                      elevation: 30, // High elevation for Android
+                      borderWidth: 0.5,
+                      borderColor: sparkle.color,
+                      transform: [
+                        { translateX: sparkle.x },
+                        { translateY: sparkle.y },
+                        { scale: sparkle.scale },
+                        { rotate: `${randomRotation}deg` },
+                      ],
+                      opacity: sparkle.opacity,
+                    },
+                  ]}
+                >
+                  {/* Inner glow effect for aura */}
+                  <Animated.View
                     style={[
-                        sparkType === 0 ? styles.sparkLine : // Horizontal line
-                        sparkType === 1 ? styles.sparkSlash : // Diagonal slash
-                        sparkType === 2 ? styles.sparkBackslash : // Opposite diagonal
-                        styles.sparkCross, // Cross/plus shape
-                        {
+                      styles.sparkAura,
+                      {
                         backgroundColor: sparkle.color,
-                        shadowColor: sparkle.color,
-                        shadowOpacity: 1,
-                        shadowRadius: 20,
-                        shadowOffset: { width: 0, height: 0 },
-                        elevation: 30,
-                        borderWidth: 1,
-                        borderColor: sparkle.color,
-                        transform: [
-                            { translateX: sparkle.x },
-                            { translateY: sparkle.y },
-                            { scale: sparkle.scale },
-                            { rotate: `${randomRotation}deg` }, // Add random rotation to each spark
-                        ],
-                        opacity: sparkle.opacity,
-                        },
+                        opacity: sparkle.opacity.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 0.3],
+                        }),
+                        transform: [{ scale: sparkle.scale }],
+                      },
                     ]}
-                    />
-                );
-                })}
+                  />
+                </Animated.View>
+              );
+            })}
             
             {/* Attack Button */}
             <Animated.View style={animatedButtonStyle}>
@@ -1106,6 +1245,12 @@ const addNeonIntensity = (color: string) => {
                     shadowOpacity: 0.6,
                     shadowRadius: 8,
                     shadowOffset: { width: 0, height: 0 },
+                    transform: [
+                        { scale: buttonScale._value || 1 },
+                        { 
+                            rotate: `${(buttonRotation._value || 0) * 5.73}deg`
+                        }
+                    ]
                   }
                 ]} 
                 onPress={playerAttack}
@@ -1371,28 +1516,34 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
   attackButton: {
-    backgroundColor: '#FF5722',
-    paddingHorizontal: 48,
-    paddingVertical: 20,
-    borderRadius: 35,
-    shadowColor: '#FF5722',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 12,
-    minWidth: 180,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  attackButtonText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    letterSpacing: 1,
-  },
+  backgroundColor: '#FF5722',
+  width: 120, // Make it circular
+  height: 120, // Same width and height
+  borderRadius: 60, // Half of width/height for perfect circle
+  shadowColor: '#FF5722',
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.4,
+  shadowRadius: 12,
+  elevation: 12,
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderWidth: 3,
+  borderColor: 'rgba(255, 255, 255, 0.3)',
+},
+attackButtonText: {
+  color: '#FFFFFF',
+  fontSize: 18, // Slightly smaller to fit in circle
+  fontWeight: 'bold',
+  textAlign: 'center',
+  letterSpacing: 1,
+},
+attackButtonContainer: {
+  position: 'relative',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 300, // Larger area for movement
+  height: 300, // Larger area for movement
+},
   exitButton: {
     backgroundColor: '#666',
     paddingHorizontal: 36,
@@ -1416,13 +1567,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.5,
   },
-  attackButtonContainer: {
-  position: 'relative',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 250,
-  height: 250,
-},
+  joinButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 36,
+    paddingVertical: 16,
+    borderRadius: 28,
+    minWidth: 160,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    marginBottom: 12,
+  },
+  joinButtonDisabled: {
+    backgroundColor: '#666',
+    shadowColor: '#666',
+    opacity: 0.7,
+  },
+  joinButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
 sparkle: {
   position: 'absolute',
   width: 8,
@@ -1520,5 +1693,58 @@ innerGlowCross: {
   top: 0.5,
   left: 2,
   borderRadius: 1,
+},
+// Soldering-style spark shapes
+sparkDot: {
+  position: 'absolute',
+  width: 2,
+  height: 2,
+  zIndex: 1000,
+  borderRadius: 1,
+},
+sparkLine: {
+  position: 'absolute',
+  width: 6,
+  height: 1,
+  zIndex: 1000,
+  borderRadius: 0.5,
+},
+sparkSlash: {
+  position: 'absolute',
+  width: 5,
+  height: 1,
+  zIndex: 1000,
+  borderRadius: 0.5,
+},
+sparkBackslash: {
+  position: 'absolute',
+  width: 5,
+  height: 1,
+  zIndex: 1000,
+  borderRadius: 0.5,
+},
+sparkCross: {
+  position: 'absolute',
+  width: 4,
+  height: 1,
+  zIndex: 1000,
+  borderRadius: 0.5,
+},
+sparkStar: {
+  position: 'absolute',
+  width: 6,
+  height: 6,
+  zIndex: 1000,
+  borderRadius: 0,
+},
+// Aura effect for sparks
+sparkAura: {
+  position: 'absolute',
+  width: 8,
+  height: 8,
+  borderRadius: 4,
+  top: -3,
+  left: -3,
+  zIndex: 999,
 },
 });

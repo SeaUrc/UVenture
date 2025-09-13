@@ -238,7 +238,7 @@ export default function TabTwoScreen() {
     if (withinRadius) {
       Alert.alert(
         locationData.name,
-        `Owned by: ${locationData.owner_team_name}\nOwners: ${locationData.owner_count}\n\nYou are within battle range!`,
+        `Current Champion: ${locationData.owner_team_name}\n\nYou are within battle range!`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Battle', style: 'default', onPress: () => handleBattleStart(locationData) },
@@ -402,7 +402,7 @@ export default function TabTwoScreen() {
             />
           </View>
         </TouchableOpacity>
-      </View>
+    </View>
     </ThemedView>
   );
 }
