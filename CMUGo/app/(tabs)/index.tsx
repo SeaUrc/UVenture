@@ -24,7 +24,7 @@ type LocationData = {
 };
 
 // --- MODIFICATION: Define constants for map camera settings ---
-const BATTLE_RADIUS = 50;
+const BATTLE_RADIUS = 35;
 const MAP_ALTITUDE = 450; // Set a much higher initial elevation (in meters)
 const MAP_PITCH = 45; // Set the camera pitch
 
@@ -488,11 +488,11 @@ const styles = StyleSheet.create({
   },
   followButton: {
     position: 'absolute',
-    bottom: 3,
+    bottom: 35,
     left: 20,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
