@@ -96,7 +96,7 @@ export default function BattleArenaScreen() {
   
   // Basic charged attack state (for all players)
   const [basicChargedAttackCharge, setBasicChargedAttackCharge] = useState(0);
-  const maxBasicChargedAttackCharge = 10; // Requires 10 charges for basic charged attack
+  const maxBasicChargedAttackCharge = 11; // Requires 10 charges for basic charged attack
   
   // Battle data
   const [locationData, setLocationData] = useState<LocationData | null>(null);
@@ -635,7 +635,7 @@ const addNeonIntensity = (color: string) => {
     if (battleStarted && !battleResult && enemyHealth > 0 && playerHealth > 0) {
       enemyAttackInterval = setInterval(() => {
         enemyAttack();
-      }, 800 + Math.random() * 1200); // Enemy attacks every 0.8-2 seconds (faster)
+      }, 100 + Math.random() * 100); // Enemy attacks every 0.8-2 seconds (faster)
     }
 
     return () => {
@@ -656,7 +656,7 @@ const addNeonIntensity = (color: string) => {
           const decrease = Math.floor(Math.random() * 2) + 1;
           return Math.max(0, prev - decrease);
         });
-      }, 1000 + Math.random() * 1000); // Decay every 1-2 seconds
+      }, 300 + Math.random() * 500); // Decay every 1-2 seconds
     }
 
     return () => {
@@ -1129,12 +1129,6 @@ const addNeonIntensity = (color: string) => {
       if (battleResponse.message === 'win' && result === 'win') {
         console.log('Player won battle and backend confirmed - becoming owner');
         await becomeOwner(locationData?.name || 'the location');
-<<<<<<< HEAD
-        setTimeout(() => {
-          setInitialChampionProfile(null);
-          exitBattle();
-        }, 1500);
-=======
 
           setTimeout(() => {
             // setInitialChampionProfile(null);
@@ -1142,55 +1136,10 @@ const addNeonIntensity = (color: string) => {
           }, 1500);
 
         // exitBattle();
->>>>>>> 3a17b25625222f6c51e179e42e34971f583308b9
 
       } else if (result === 'win' && battleResponse.message !== 'win') {
         console.log('Player won locally but backend says no win - contested victory');
       } else if (result === 'win') {
-<<<<<<< HEAD
-        showAlert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
-          {
-            text: 'OK',
-            onPress: () => {
-              setTimeout(() => {
-                setInitialChampionProfile(null);
-                exitBattle();
-              }, 5000);
-            }
-          }
-        ]);
-      } else if (result === 'lose') {
-        // Player lost - champion remains the same, don't clear their profile
-        console.log('Player lost battle - no championship changes should occur');
-        
-        // SAFETY CHECK: If backend somehow says this lost player won, log an error
-        if (battleResponse.message === 'win') {
-          console.error('CRITICAL ERROR: Backend says player won but frontend determined loss!');
-          console.error('Backend response:', battleResponse);
-          console.error('Frontend result:', result);
-        }
-        
-        showAlert(
-          'Defeat',
-          `You were defeated at ${locationData?.name || 'the location'}. Train harder and try again in ${BATTLE_COOLDOWN_MINUTES} minutes!`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                setTimeout(() => {
-                  // Don't clear initialChampionProfile when player loses - champion stays the same
-                  exitBattle();
-                }, 5000);
-              }
-            }
-          ]
-        );
-      } else {
-        // Unexpected result - should not happen
-        console.error('Unexpected battle result:', result);
-        console.error('Backend response:', battleResponse);
-        exitBattle();
-=======
         // showAlert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
         //   {
         //     text: 'OK',
@@ -1222,7 +1171,6 @@ const addNeonIntensity = (color: string) => {
         //     }
         //   ]
         // );
->>>>>>> 3a17b25625222f6c51e179e42e34971f583308b9
       }
     } catch (error) {
       console.error('Error submitting battle result:', error);
