@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, Animated } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { Colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 
 const databaseUrl = 'http://unrevetted-larue-undeleterious.ngrok-free.app';
@@ -708,30 +710,10 @@ export default function BattleArenaScreen() {
       await fetchLocationData();
       
       if (battleResponse.message === 'win' && result === 'win') {
-        Alert.alert(
-          'Victory!',
-          `You captured ${locationData?.name || 'the location'}! Do you want to become an owner?`,
-          [
-            {
-              text: 'No Thanks',
-              style: 'cancel',
-              onPress: () => {
-                setTimeout(() => {
-                  router.replace('/(tabs)');
-                }, 1000);
-              }
-            },
-            {
-              text: 'Become Owner',
-              onPress: async () => {
-                await becomeOwner();
-                setTimeout(() => {
-                  router.replace('/(tabs)');
-                }, 1500);
-              },
-            },
-          ]
-        );
+        await becomeOwner(locationData?.name || 'the location');
+          setTimeout(() => {
+            router.replace('/(tabs)');
+          }, 1500);
       } else if (result === 'win') {
         Alert.alert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
           {
@@ -777,7 +759,7 @@ export default function BattleArenaScreen() {
     }
   };
 
-  const becomeOwner = async () => {
+  const becomeOwner = async (locationName: string) => {
     if (!userToken || !id) return;
 
     try {
@@ -896,8 +878,13 @@ export default function BattleArenaScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Battle Arena</Text>
-      <Text style={styles.subtitle}>{title || locationData?.name}</Text>
+      <View style={styles.headerSection}>
+        <Text style={styles.title}>⚔️ Battle Arena</Text>
+        <Text style={styles.subtitle}>{title || locationData?.name}</Text>
+        <Text style={styles.description}>
+          1. Challenge the defending champion to capture this location! {'\n'}2. Tap the Attack button to deal damage. {'\n'}3. Defeat them to capture this location!
+        </Text>
+      </View>
 
       {/* Battle Timer */}
       {battleStarted && !battleResult && (
@@ -912,11 +899,6 @@ export default function BattleArenaScreen() {
       <View style={styles.battleField}>
         {!battleStarted && !battleResult && (
           <View style={styles.startContainer}>
-            <Text style={styles.instructions}>
-              Battle with the defending champion!{'\n'}
-              Tap the Attack button to deal damage.{'\n'}
-              Defeat them to capture this location!
-            </Text>
             <TouchableOpacity style={styles.startButton} onPress={startBattle}>
               <Text style={styles.startButtonText}>Begin Battle</Text>
             </TouchableOpacity>
@@ -1052,235 +1034,296 @@ export default function BattleArenaScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
-    padding: 20,
-    paddingTop: 50,
+    backgroundColor: Colors.dark.background,
+    padding: 24,
+    paddingTop: 60,
+  },
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 215, 0, 0.2)',
   },
   title: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 6,
+    letterSpacing: 1,
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 22,
     color: '#FFD700',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
+    fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+    letterSpacing: 0.5,
+  },
+  description: {
+    fontSize: 16,
+    color: '#ccc',
+    textAlign: 'left',
+    fontWeight: '500',
+    opacity: 0.9,
+    paddingHorizontal: 20,
+    lineHeight: 22,
   },
   timerContainer: {
     alignItems: 'center',
-    marginBottom: 15,
-    padding: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
   },
   timerText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFD700',
+    letterSpacing: 1,
   },
   battleField: {
     flex: 1,
     justifyContent: 'center',
     minHeight: 400,
-    paddingVertical: 20,
+    paddingVertical: 24,
   },
   combatArea: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    minHeight: 200,
+    paddingHorizontal: 24,
+    minHeight: 240,
   },
   startContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 32,
   },
   instructions: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     textAlign: 'center',
-    marginBottom: 30,
-    lineHeight: 24,
-    paddingHorizontal: 10,
+    marginBottom: 32,
+    lineHeight: 28,
+    paddingHorizontal: 16,
+    fontWeight: '500',
+    opacity: 0.9,
   },
   startButton: {
     backgroundColor: '#4CAF50',
-    paddingHorizontal: 40,
-    paddingVertical: 15,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
     borderRadius: 25,
-    shadowColor: '#000',
+    shadowColor: '#4CAF50',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    minWidth: 200,
+    minWidth: 160,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   startButtonText: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   playerSide: {
     alignItems: 'center',
     flex: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: 16,
     justifyContent: 'center',
   },
   enemySide: {
     alignItems: 'center',
     flex: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: 16,
     justifyContent: 'center',
   },
   playerName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 12,
     color: '#4CAF50',
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   enemyName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 12,
     color: '#F44336',
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   playerImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 10,
-    borderWidth: 2,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    marginBottom: 16,
+    borderWidth: 3,
     borderColor: '#4CAF50',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   enemyImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 10,
-    borderWidth: 2,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    marginBottom: 16,
+    borderWidth: 3,
     borderColor: '#F44336',
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   vsText: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#FFD700',
     textAlign: 'center',
-    marginVertical: 15,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    marginVertical: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
     textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
+    textShadowRadius: 6,
+    letterSpacing: 2,
   },
   healthBar: {
-    width: 100,
-    height: 10,
+    width: 120,
+    height: 12,
     backgroundColor: '#333',
-    borderRadius: 5,
-    marginBottom: 6,
+    borderRadius: 6,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#555',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   healthFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 5,
   },
   healthText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   teamText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#ccc',
     textAlign: 'center',
+    opacity: 0.8,
   },
   resultContainer: {
     alignItems: 'center',
-    marginVertical: 20,
-    padding: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 15,
-    marginHorizontal: 10,
+    marginVertical: 24,
+    padding: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 20,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   resultText: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 16,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+    letterSpacing: 1,
   },
   resultSubtext: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#ccc',
-    marginBottom: 4,
+    marginBottom: 8,
     textAlign: 'center',
+    fontWeight: '500',
+    opacity: 0.9,
   },
   controls: {
     alignItems: 'center',
-    paddingBottom: 40,
-    paddingTop: 20,
+    paddingBottom: 50,
+    paddingTop: 24,
     marginTop: 'auto',
   },
-  attackButtonContainer: {
-    position: 'relative',
+  attackButton: {
+    backgroundColor: '#FF5722',
+    paddingHorizontal: 48,
+    paddingVertical: 20,
+    borderRadius: 35,
+    shadowColor: '#FF5722',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 12,
+    minWidth: 180,
     alignItems: 'center',
     justifyContent: 'center',
-    width: 200, // Add explicit width
-    height: 200, // Add explicit height for sparkle area
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  sparkle: {
-    position: 'absolute',
-    width: 12, // Make sparkles bigger
-    height: 12,
-    borderRadius: 6,
-    zIndex: 10, // Higher z-index
-    // Add a border to make them more visible
+  attackButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  exitButton: {
+    backgroundColor: '#666',
+    paddingHorizontal: 36,
+    paddingVertical: 16,
+    borderRadius: 28,
+    minWidth: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  attackButton: {
-    paddingHorizontal: 40,
-    paddingVertical: 18,
-    borderRadius: 30,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    minWidth: 150,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 5, // Lower than sparkles
   },
-  attackButtonText: {
+  exitButtonText: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
-  },
-  exitButton: {
-    backgroundColor: '#666',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
-    minWidth: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    letterSpacing: 0.5,
   },
 });
