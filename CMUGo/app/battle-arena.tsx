@@ -563,9 +563,6 @@ const addNeonIntensity = (color: string) => {
 
   // Attack button animation with sparkles
   const playAttackAnimation = () => {
-    // Haptic feedback
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     // Increment tap count
     const newTapCount = tapCount + 1;
     setTapCount(newTapCount);
@@ -650,7 +647,16 @@ const addNeonIntensity = (color: string) => {
   const playerAttack = () => {
     if (battleResult || !battleStarted) return;
 
-    // Play attack animation and haptic feedback
+    // Try multiple haptic approaches for rapid taps
+    // 1. Use selection feedback which is more responsive for rapid taps
+    Haptics.selectionAsync();
+    
+    // 2. Also try a light impact as backup
+    setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }, 5);
+
+    // Play attack animation
     playAttackAnimation();
 
     const userStrength = userProfile?.strength || 10;
@@ -795,17 +801,13 @@ const addNeonIntensity = (color: string) => {
       
       if (battleResponse.message === 'win' && result === 'win') {
         await becomeOwner(locationData?.name || 'the location');
-          setTimeout(() => {
-            router.replace('/(tabs)');
-          }, 1500);
+        exitBattle();
       } else if (result === 'win') {
         Alert.alert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
           {
             text: 'OK',
             onPress: () => {
-              setTimeout(() => {
-                router.replace('/(tabs)');
-              }, 1000);
+              
             }
           }
         ]);
@@ -817,9 +819,7 @@ const addNeonIntensity = (color: string) => {
             {
               text: 'OK',
               onPress: () => {
-                setTimeout(() => {
-                  router.replace('/(tabs)');
-                }, 1000);
+                
               }
             }
           ]
@@ -1184,11 +1184,7 @@ const styles = StyleSheet.create({
   battleField: {
     flex: 1,
     justifyContent: 'center',
-<<<<<<< HEAD
     minHeight: 150,
-=======
-    minHeight: 160,
->>>>>>> 3ca3c84876a6b3b12a9df4ceda087df4af1f840d
     paddingVertical: 24,
   },
   combatArea: {
