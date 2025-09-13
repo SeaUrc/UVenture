@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 type LocationData = {
   id: number;
   name: string;
-  image: string; // Base64 image data
+  image: string; 
   latitude: number;
   longitude: number;
   owner_team: number;
@@ -118,7 +118,7 @@ export default function TabTwoScreen() {
         }
         
         const data = await response.json();
-        console.log('Fetched locations:', data.data);
+        // console.log('Fetched locations:', data.data);
         setLocations(data.data || []);
       } catch (error) {
         console.error('Error fetching locations:', error);
@@ -553,15 +553,17 @@ const handleMarkerPress = (locationData: LocationData) => {
                   ]}>
                     {locationData.image ? (
                       <Image 
-                        source={{ uri: `data:image/png;base64,${locationData.image}` }}
+                        source={{ uri: locationData.image }}
                         style={styles.markerImage}
                         resizeMode="cover"
+                        onError={(e) => console.log("❌ Image failed", e.nativeEvent)}
                       />
                     ) : (
                       <Image 
                         source={require('@/assets/images/react-logo.png')}
                         style={styles.markerImage}
                         resizeMode="cover"
+                        onLoad={() => console.log("✅ Image loaded successfully")}
                       />
                     )}
                   </View>
@@ -609,11 +611,28 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: 20,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   title: {
     fontFamily: Fonts.rounded,
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
+  },
+  logoutButton: {
+    backgroundColor: '#FF3B30',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  logoutText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   mapContainer: {
     flex: 1,
