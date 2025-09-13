@@ -254,6 +254,12 @@ export default function TabTwoScreen() {
   };
 
   useEffect(() => {
+    fetchLocations();
+    const interval = setInterval(fetchLocations, 30000);
+    return () => clearInterval(interval);
+  }, [])
+
+  useEffect(() => {
   let locationSubscription: Location.LocationSubscription | null = null;
 
   if (isFollowingUser && location) {
@@ -593,13 +599,7 @@ const handleMarkerPress = (locationData: LocationData) => {
           </View>
         </TouchableOpacity>
 
-        {/* Refresh button */}
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={fetchLocations}
-        >
-          <ThemedText style={styles.refreshButtonText}>↻</ThemedText>
-        </TouchableOpacity>
+
       </View>
     </ThemedView>
   );
