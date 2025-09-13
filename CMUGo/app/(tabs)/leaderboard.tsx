@@ -10,14 +10,13 @@ type Team = {
   points: number;
   rank: number;
   color: string;
-  members: number;
+  members?: number;
 };
 
-
-const databaseUrl = 'http://unrevetted-larue-undeleterious.ngrok-free.app';
+const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
 
 export default function LeaderboardScreen() {
-  const [teams, setTeams] = useState<Team[]>();
+  const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -27,22 +26,27 @@ export default function LeaderboardScreen() {
       setIsLoading(true);
       const response = await fetch(`${databaseUrl}/api/teams/get_teams`);
       if (!response.ok) {
-        console.log(response.status)
+        console.log('Response status:', response.status);
         throw new Error('Failed to fetch leaderboard');
       }
       
       const data = await response.json();
+      console.log('API response:', data); // Debug log
+      
+      // Handle different possible response structures
+      const teamsArray = data.teams || data.data || data || [];
       
       // Transform API data to match our Team type
-      const leaderboardData: Team[] = data.data
+      const leaderboardData: Team[] = teamsArray
         .map((team: any, index: number) => ({
-          id: team.id,
-          name: team.name,
-          points: team.points,
+          id: team.id || index,
+          name: team.name || 'Unknown Team',
+          points: team.points || team.score || 0, // Handle null/undefined points
           rank: index + 1,
           color: team.color || '#007AFF',
+          members: team.members || team.member_count || 0,
         }))
-        .sort((a: Team, b: Team) => b.points - a.points); // Sort by points descending
+        .sort((a: Team, b: Team) => (b.points || 0) - (a.points || 0)); // Safe sorting
       
       // Update ranks after sorting
       const rankedTeams = leaderboardData.map((team, index) => ({
@@ -50,10 +54,12 @@ export default function LeaderboardScreen() {
         rank: index + 1,
       }));
       
+      console.log('Processed teams:', rankedTeams); // Debug log
       setTeams(rankedTeams);
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
-      // Keep dummy data on error
+      // Set empty array on error instead of keeping undefined
+      setTeams([]);
     } finally {
       setIsLoading(false);
     }
@@ -83,16 +89,42 @@ export default function LeaderboardScreen() {
         <ThemedText style={[styles.teamName, { fontFamily: Fonts.rounded }]}>
           {team.name}
         </ThemedText>
+        {team.members !== undefined && (
+          <ThemedText style={styles.memberCount}>
+            {team.members} member{team.members !== 1 ? 's' : ''}
+          </ThemedText>
+        )}
       </View>
       
       <View style={styles.pointsContainer}>
         <ThemedText style={[styles.pointsText, { fontFamily: Fonts.rounded }]}>
-          {team.points.toLocaleString()}
+          {(team.points || 0).toLocaleString()}
         </ThemedText>
         <ThemedText style={styles.pointsLabel}>points</ThemedText>
       </View>
     </View>
   );
+
+  if (isLoading && teams.length === 0) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.header}>
+          <ThemedText 
+            type="defaultSemiBold" 
+            style={[styles.title, { fontFamily: Fonts.rounded }]}
+          >
+            Leaderboard
+          </ThemedText>
+          <ThemedText style={styles.subtitle}>
+            Team Rankings
+          </ThemedText>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ThemedText style={styles.loadingText}>Loading teams...</ThemedText>
+        </View>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -110,17 +142,30 @@ export default function LeaderboardScreen() {
 
       <ScrollView 
         style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         <View style={styles.leaderboardContainer}>
-          {teams?.map(renderTeamItem)}
+          {teams.length > 0 ? (
+            teams.map(renderTeamItem)
+          ) : (
+            <View style={styles.emptyContainer}>
+              <ThemedText style={styles.emptyText}>
+                No teams found
+              </ThemedText>
+              <ThemedText style={styles.emptySubtext}>
+                Pull down to refresh
+              </ThemedText>
+            </View>
+          )}
         </View>
         
         <View style={styles.footer}>
           <ThemedText style={styles.footerText}>
-            Pull down to refresh
+            End of Leaderboard
           </ThemedText>
         </View>
       </ScrollView>
@@ -141,7 +186,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 5,
-    lineHeight: 36, // Add proper line height
+    lineHeight: 36,
   },
   subtitle: {
     fontSize: 16,
@@ -207,6 +252,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.7,
     marginTop: 2,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    opacity: 0.7,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    opacity: 0.7,
   },
   footer: {
     alignItems: 'center',

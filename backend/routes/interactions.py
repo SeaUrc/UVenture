@@ -75,14 +75,16 @@ def battle():
         if not isinstance(score, int):
             return jsonify({'error': 'Score must be an integer'}), 400
         
-        # Get user information (team and strength)
-        user_response = supabase.table('users').select('team, strength').eq('id', user_id).execute()
+        # Get user information (team, strength, and current win/loss counts)
+        user_response = supabase.table('users').select('team, strength, wins, losses').eq('id', user_id).execute()
         if not user_response.data:
             return jsonify({'error': 'User not found'}), 404
         
         user = user_response.data[0]
         user_team = user.get('team')
         user_strength = user.get('strength', 0)
+        current_wins = user.get('wins', 0)
+        current_losses = user.get('losses', 0)
         
         if not user_team:
             return jsonify({'error': 'User must be assigned to a team to battle'}), 400
@@ -102,10 +104,12 @@ def battle():
         
         # Get the strength of the strongest owner to use as battle threshold
         battle_threshold = 0
+        strongest_owner_data = None
         if current_strongest_owner_id:
-            strongest_response = supabase.table('users').select('strength').eq('id', current_strongest_owner_id).execute()
+            strongest_response = supabase.table('users').select('strength, wins, losses').eq('id', current_strongest_owner_id).execute()
             if strongest_response.data:
-                battle_threshold = strongest_response.data[0].get('strength', 0)
+                strongest_owner_data = strongest_response.data[0]
+                battle_threshold = strongest_owner_data.get('strength', 0)
         
         # Calculate battle result based on score and user strength vs strongest owner's strength
         total_power = score + user_strength
@@ -113,10 +117,26 @@ def battle():
         # Determine if user wins
         wins = total_power > battle_threshold
         
-        # Update user's last_battle timestamp regardless of outcome
-        supabase.table('users').update({
-            'last_battle': datetime.utcnow().isoformat()
-        }).eq('id', user_id).execute()
+        # Update user's last_battle timestamp and battle stats
+        if wins:
+            # Increment wins count for the winner
+            supabase.table('users').update({
+                'last_battle': datetime.utcnow().isoformat(),
+                'wins': current_wins + 1
+            }).eq('id', user_id).execute()
+            
+            # Increment losses count for the defeated strongest owner
+            if current_strongest_owner_id and strongest_owner_data:
+                current_strongest_losses = strongest_owner_data.get('losses', 0)
+                supabase.table('users').update({
+                    'losses': current_strongest_losses + 1
+                }).eq('id', current_strongest_owner_id).execute()
+        else:
+            # Increment losses count for the challenger
+            supabase.table('users').update({
+                'last_battle': datetime.utcnow().isoformat(),
+                'losses': current_losses + 1
+            }).eq('id', user_id).execute()
         
         if wins:
             # Team ownership change - set new team as owner and reset ownership

@@ -46,6 +46,8 @@ export default function BattleScreen() {
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [strongestOwnerProfile, setStrongestOwnerProfile] = useState<ProfileData | null>(null);
   const [userProfile, setUserProfile] = useState<ProfileData | null>(null);
+  const [userTeamName, setUserTeamName] = useState<string | null>(null);
+  const [enemyTeamName, setEnemyTeamName] = useState<string | null>(null);
   
   // Auth state
   const [userToken, setUserToken] = useState<string | null>(null);
@@ -130,9 +132,60 @@ export default function BattleScreen() {
       if (response.ok) {
         const profileData = await response.json();
         setUserProfile(profileData);
+        
+        // Fetch team name if user has a team
+        if (profileData.team) {
+          await fetchTeamName(profileData.team);
+        }
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+    }
+  };
+
+  // Fetch team name by team ID
+  const fetchTeamName = async (teamId: string | number) => {
+    try {
+      const response = await fetch(`${databaseUrl}/api/teams/get_team`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: parseInt(teamId.toString()),
+        }),
+      });
+
+      if (response.ok) {
+        const teamData = await response.json();
+        setUserTeamName(teamData.name);
+      }
+    } catch (error) {
+      console.error('Error fetching team name:', error);
+      setUserTeamName(null);
+    }
+  };
+
+  // Fetch enemy team name by team ID
+  const fetchEnemyTeamName = async (teamId: string | number) => {
+    try {
+      const response = await fetch(`${databaseUrl}/api/teams/get_team`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: parseInt(teamId.toString()),
+        }),
+      });
+
+      if (response.ok) {
+        const teamData = await response.json();
+        setEnemyTeamName(teamData.name);
+      }
+    } catch (error) {
+      console.error('Error fetching enemy team name:', error);
+      setEnemyTeamName(null);
     }
   };
 
@@ -185,6 +238,11 @@ export default function BattleScreen() {
         const profileData = await response.json();
         if (profileData && profileData.username) {
           setStrongestOwnerProfile(profileData);
+          
+          // Fetch enemy team name if strongest owner has a team
+          if (profileData.team) {
+            await fetchEnemyTeamName(profileData.team);
+          }
         }
       }
     } catch (error) {
@@ -289,7 +347,7 @@ export default function BattleScreen() {
         image: userProfile.image 
           ? `data:image/png;base64,${userProfile.image}` 
           : null,
-        team: userProfile.team,
+        team: userTeamName || userProfile.team, // Use team name if available, fall back to team ID
       };
     }
     
@@ -307,7 +365,7 @@ export default function BattleScreen() {
         image: strongestOwnerProfile.image 
           ? `data:image/png;base64,${strongestOwnerProfile.image}` 
           : getEnemyAvatar(locationData?.owner_team_color || '#FF0000'),
-        team: strongestOwnerProfile.team,
+        team: enemyTeamName || strongestOwnerProfile.team, // Use enemy team name if available, fall back to team ID
       };
     }
     
@@ -387,8 +445,8 @@ export default function BattleScreen() {
               />
               <Text style={styles.fighterName}>{userInfo.name}</Text>
               <Text style={styles.fighterTeam}>{userInfo.team}</Text>
-              {isUserOwner && <Text style={styles.ownerBadge}>OWNER</Text>}
-              {isUserStrongestOwner && <Text style={styles.championBadge}>CHAMPION</Text>}
+              {/* {isUserOwner && <Text style={styles.ownerBadge}>OWNER</Text>} */}
+              {/* {isUserStrongestOwner && <Text style={styles.championBadge}>CHAMPION</Text>} */}
             </View>
 
             <Text style={styles.vsText}>

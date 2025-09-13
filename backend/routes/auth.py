@@ -37,9 +37,15 @@ def create_account():
         
         username = data.get('username')
         password = data.get('password')
+        team = data.get('team')  # Optional team ID
+        image = data.get('image')  # Optional base64 image string
         
         if not username or not password:
             return jsonify({'error': 'Username and password are required'}), 400
+        
+        # Validate team ID if provided
+        if team is not None and not isinstance(team, int):
+            return jsonify({'error': 'Team must be an integer'}), 400
         
         # Check if username already exists
         existing_user = supabase.table('users').select('id').eq('username', username).execute()
@@ -53,8 +59,9 @@ def create_account():
         user_data = {
             'username': username,
             'password_hash': password_hash,
-            'team': None,  # Default value
-            'strength': 0   # Default value
+            'team': team,  # Use provided team ID or None
+            'strength': 0,   # Default value
+            'image': image  # Use provided base64 image or None
         }
         
         response = supabase.table('users').insert(user_data).execute()

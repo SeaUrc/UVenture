@@ -14,6 +14,7 @@ def get_teams():
     
     try:
         response = supabase.table('teams').select('id, name, color, points').execute()
+        print(response.data)
         return jsonify({
             'data': response.data
         })
@@ -21,15 +22,19 @@ def get_teams():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@teams_bp.route('/get_team', methods=['GET'])
+@teams_bp.route('/get_team', methods=['POST'])
 def get_team():
     """Get a specific team by ID"""
     if not supabase:
         return jsonify({'error': 'Database not configured'}), 500
     
     try:
-        # Get team ID from request args
-        team_id = request.args.get('id', type=int)
+        # Get team ID from request body
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        team_id = data.get('id')
         if team_id is None:
             return jsonify({'error': 'Team ID is required'}), 400
         if not isinstance(team_id, int):
