@@ -13,48 +13,44 @@ type Team = {
   members: number;
 };
 
-// Dummy data for the leaderboard
-const dummyTeams: Team[] = [
-  { id: 1, name: 'MCS', points: 2450, rank: 1, color: '#FF6B6B', members: 12 },
-  { id: 2, name: 'SCS', points: 2180, rank: 2, color: '#4ECDC4', members: 15 },
-  { id: 3, name: 'Tepper', points: 1950, rank: 3, color: '#45B7D1', members: 8 },
-  { id: 4, name: 'Dietrich', points: 1820, rank: 4, color: '#96CEB4', members: 10 },
-  { id: 5, name: 'Heinz', points: 1650, rank: 5, color: '#FFEAA7', members: 7 },
-  { id: 6, name: 'CFA', points: 1420, rank: 6, color: '#DDA0DD', members: 9 },
-  { id: 7, name: 'Engineering', points: 1280, rank: 7, color: '#98D8C8', members: 11 },
-  { id: 8, name: 'Mellon', points: 1100, rank: 8, color: '#F7DC6F', members: 6 },
-];
+
+const databaseUrl = 'http://unrevetted-larue-undeleterious.ngrok-free.app';
 
 export default function LeaderboardScreen() {
-  const [teams, setTeams] = useState<Team[]>(dummyTeams);
-  const [isLoading, setIsLoading] = useState(false);
+  const [teams, setTeams] = useState<Team[]>();
+  const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Sample fetch function for leaderboard data
+  // Fetch function for leaderboard data
   const fetchLeaderboard = async () => {
     try {
       setIsLoading(true);
-      
-      // Replace with your actual API endpoint
-      const response = await fetch('https://your-api-endpoint.com/leaderboard');
-      
+      const response = await fetch(`${databaseUrl}/api/teams/get_teams`);
       if (!response.ok) {
+        console.log(response.status)
         throw new Error('Failed to fetch leaderboard');
       }
       
       const data = await response.json();
       
       // Transform API data to match our Team type
-      const leaderboardData: Team[] = data.teams.map((team: any, index: number) => ({
-        id: team.id,
-        name: team.name,
-        points: team.points,
+      const leaderboardData: Team[] = data.data
+        .map((team: any, index: number) => ({
+          id: team.id,
+          name: team.name,
+          points: team.points,
+          rank: index + 1,
+          color: team.color || '#007AFF',
+        }))
+        .sort((a: Team, b: Team) => b.points - a.points); // Sort by points descending
+      
+      // Update ranks after sorting
+      const rankedTeams = leaderboardData.map((team, index) => ({
+        ...team,
         rank: index + 1,
-        color: team.color || '#007AFF',
-        members: team.member_count || 0,
       }));
       
-      setTeams(leaderboardData);
+      setTeams(rankedTeams);
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
       // Keep dummy data on error
@@ -76,7 +72,7 @@ export default function LeaderboardScreen() {
   }, []);
 
   const renderTeamItem = (team: Team) => (
-    <TouchableOpacity key={team.id} style={styles.teamItem}>
+    <View key={team.id} style={styles.teamItem}>
       <View style={styles.rankContainer}>
         <View style={[styles.rankBadge, { backgroundColor: team.color }]}>
           <ThemedText style={styles.rankText}>#{team.rank}</ThemedText>
@@ -87,9 +83,6 @@ export default function LeaderboardScreen() {
         <ThemedText style={[styles.teamName, { fontFamily: Fonts.rounded }]}>
           {team.name}
         </ThemedText>
-        <ThemedText style={styles.memberCount}>
-          {team.members} members
-        </ThemedText>
       </View>
       
       <View style={styles.pointsContainer}>
@@ -98,7 +91,7 @@ export default function LeaderboardScreen() {
         </ThemedText>
         <ThemedText style={styles.pointsLabel}>points</ThemedText>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   return (
@@ -122,7 +115,7 @@ export default function LeaderboardScreen() {
         }
       >
         <View style={styles.leaderboardContainer}>
-          {teams.map(renderTeamItem)}
+          {teams?.map(renderTeamItem)}
         </View>
         
         <View style={styles.footer}>

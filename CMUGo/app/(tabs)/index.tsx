@@ -68,17 +68,17 @@ export default function TabTwoScreen() {
   const isAnimatingRef = useRef(false); // Track if we're programmatically animating
 
 
-  useEffect(() => {
-    console.log('Test markers');
-    fetch(databaseUrl)
-      .then(response => response.json())
-      .then(data => {
-        console.log('data', data);
-      })
-      .catch(error => {
-        console.error('Error fetching markers:', error);
-      });
-  }, []);
+  // useEffect(() => {
+  //   console.log('Test markers');
+  //   fetch(databaseUrl)
+  //     .then(response => response.json())
+  //     .then(data => {
+  //       console.log('data', data);
+  //     })
+  //     .catch(error => {
+  //       console.error('Error fetching markers:', error);
+  //     });
+  // }, []);
 
   const handleBattleStart = (marker: CustomMarker) => {
   router.push({
