@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-// Remove: import { ProfileProvider } from '../context/ProfileContext';
+import ProfileProvider from '../context/ProfileContext';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
