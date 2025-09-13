@@ -95,10 +95,6 @@ export default function BattleArenaScreen() {
   const [basicChargedAttackCharge, setBasicChargedAttackCharge] = useState(0);
   const maxBasicChargedAttackCharge = 10; // Requires 10 charges for basic charged attack
   
-  // Enemy charged attack state
-  const [enemyChargedAttackCharge, setEnemyChargedAttackCharge] = useState(0);
-  const maxEnemyChargedAttackCharge = 4; // Enemies charge faster (4 attacks vs player's 10)
-  
   // Battle data
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [strongestOwnerProfile, setStrongestOwnerProfile] = useState<ProfileData | null>(null);
@@ -279,18 +275,11 @@ const animateButtonMovement = () => {
   // Create many more sparks
   const sparkCount = Math.min(5 + Math.floor(tapCount * 2), 15);
   
-  // Generate absolutely unique IDs using multiple entropy sources
-  const timestamp = performance.now();
-  const randomSeed = Math.floor(Math.random() * 1000000);
-  
   for (let i = 0; i < sparkCount; i++) {
     const sparkleColor = getRealisticSparkColor();
     
-    // Create a truly unique ID by combining timestamp, counter, loop index, and random number
-    const uniqueId = Math.floor(timestamp * 1000000) + (sparkleIdCounter * 1000) + (i * 100) + Math.floor(Math.random() * 100);
-    
     const sparkle: Sparkle = {
-      id: uniqueId,
+      id: sparkleIdCounter + i,
       x: new Animated.Value(0),
       y: new Animated.Value(0),
       opacity: new Animated.Value(1),
@@ -414,11 +403,9 @@ const animateButtonMovement = () => {
     ]).start();
   }
   
-  // Update counter to help ensure unique IDs in future calls
-  setSparkleIdCounter(prev => prev + sparkCount + 1);
+  setSparkleIdCounter(prev => prev + sparkCount);
   setSparkles(prev => [...prev, ...newSparkles]);
   
-  // Clean up sparkles after animation
   setTimeout(() => {
     setSparkles(prev => 
       prev.filter(s => !newSparkles.some(ns => ns.id === s.id))
@@ -645,7 +632,7 @@ const addNeonIntensity = (color: string) => {
     if (battleStarted && !battleResult && enemyHealth > 0 && playerHealth > 0) {
       enemyAttackInterval = setInterval(() => {
         enemyAttack();
-      }, 200 + Math.random() * 200); // Enemy attacks every 0.2-0.4 seconds (extremely aggressive)
+      }, 800 + Math.random() * 1200); // Enemy attacks every 0.8-2 seconds (faster)
     }
 
     return () => {
@@ -676,6 +663,38 @@ const addNeonIntensity = (color: string) => {
     };
   }, [battleStarted, battleResult, basicChargedAttackCharge]);
 
+  // Exit button countdown effect
+  useEffect(() => {
+    let countdownInterval: ReturnType<typeof setInterval> | null = null;
+    
+    if (battleResult) {
+      // Small delay to ensure battle result is fully processed
+      setTimeout(() => {
+        // Disable exit button when battle ends
+        setExitButtonEnabled(false);
+        setExitCountdown(3); // Back to 3 seconds
+        
+        // Start countdown
+        countdownInterval = setInterval(() => {
+          setExitCountdown(prev => {
+            if (prev <= 1) {
+              // Enable exit button when countdown reaches 0
+              setExitButtonEnabled(true);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }, 100);
+    }
+
+    return () => {
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+      }
+    };
+  }, [battleResult]);
+
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -698,7 +717,6 @@ const addNeonIntensity = (color: string) => {
     setSparkles([]);
     setSuperAttackCharge(0); // Reset super attack charge for Arts players
     setBasicChargedAttackCharge(0); // Reset basic charged attack charge for all players
-    setEnemyChargedAttackCharge(0); // Reset enemy charged attack charge
     
     // Start button movement after a brief delay
     setTimeout(() => {
@@ -772,22 +790,11 @@ const addNeonIntensity = (color: string) => {
     // Calculate base enemy damage (3-15 range for stronger enemies)
     const baseDamage = normalizedStrength * randomFactor * 6;
     
-    // Give enemies a 3x damage multiplier to make them much more threatening
-    const enemyDamage = baseDamage * 3;
+    // Give enemies a 2x damage multiplier to make them more threatening
+    const enemyDamage = baseDamage * 2;
     
-    // Round and ensure it's within reasonable range (2-25)
-    return Math.max(2, Math.min(25, Math.round(enemyDamage)));
-  };
-
-  const calculateEnemyChargedDamage = (attackerStrength: number, defenderStrength: number): number => {
-    // Base enemy damage calculation
-    const baseDamage = calculateEnemyDamage(attackerStrength, defenderStrength);
-    
-    // Charged attacks do 2.5x more damage than regular enemy attacks
-    const chargedDamage = baseDamage * 2.5;
-    
-    // Round and ensure it's within reasonable range (5-60)
-    return Math.max(5, Math.min(60, Math.round(chargedDamage)));
+    // Round and ensure it's within reasonable range (1-15)
+    return Math.max(1, Math.min(15, Math.round(enemyDamage)));
   };
 
   // Attack button animation with sparkles
@@ -995,11 +1002,10 @@ const addNeonIntensity = (color: string) => {
     const enemyStrength = strongestOwnerProfile?.strength || 10;
     const userStrength = userProfile?.strength || 10;
     
-    // For now, let's just do regular enemy damage to make sure it works
+    // Calculate enemy damage without tap count dependency
     const enemyDamage = calculateEnemyDamage(enemyStrength, userStrength);
     
     console.log(`Enemy attack: Enemy strength ${enemyStrength} vs User strength ${userStrength} = ${enemyDamage} damage`);
-    console.log(`Player health before: ${playerHealth}, damage: ${enemyDamage}`);
     
     setPlayerHealth(prevHealth => {
       const newPlayerHealth = Math.max(0, prevHealth - enemyDamage);
@@ -1116,55 +1122,46 @@ const addNeonIntensity = (color: string) => {
       
       if (battleResponse.message === 'win' && result === 'win') {
         await becomeOwner(locationData?.name || 'the location');
+
           setTimeout(() => {
-            setInitialChampionProfile(null);
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/(tabs)');
-            }
+            // setInitialChampionProfile(null);
+            // router.back();
           }, 1500);
-        exitBattle();
+
+        // exitBattle();
 
       } else if (result === 'win') {
-        showAlert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
-          {
-            text: 'OK',
-            onPress: () => {
-              exitBattle();
-              setTimeout(() => {
-                setInitialChampionProfile(null);
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace('/(tabs)');
-                }
-              }, 1000);
-            }
-          }
-        ]);
+        // showAlert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
+        //   {
+        //     text: 'OK',
+        //     onPress: () => {
+
+        //       setTimeout(() => {
+        //         setInitialChampionProfile(null);
+        //         router.back();
+        //       }, 1000);
+
+        //     }
+        //   }
+        // ]);
       } else {
-        // Player lost - champion remains the same, don't clear their profile
-        showAlert(
-          'Defeat',
-          `You were defeated at ${locationData?.name || 'the location'}. Train harder and try again in ${BATTLE_COOLDOWN_MINUTES} minutes!`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                exitBattle();
-                setTimeout(() => {
-                  // Don't clear initialChampionProfile when player loses - champion stays the same
-                  if (router.canGoBack()) {
-                    router.back();
-                  } else {
-                    router.replace('/(tabs)');
-                  }
-                }, 1000);
-              }
-            }
-          ]
-        );
+        // showAlert(
+        //   'Defeat',
+        //   `You were defeated at ${locationData?.name || 'the location'}. Train harder and try again in ${BATTLE_COOLDOWN_MINUTES} minutes!`,
+        //   [
+        //     {
+        //       text: 'OK',
+        //       onPress: () => {
+
+        //         setTimeout(() => {
+        //           setInitialChampionProfile(null);
+        //           router.back();
+        //         }, 1000);
+
+        //       }
+        //     }
+        //   ]
+        // );
       }
     } catch (error) {
       console.error('Error submitting battle result:', error);
@@ -1348,9 +1345,9 @@ const addNeonIntensity = (color: string) => {
           </Text>
         </View>
         
-        <Text style={styles.description}>
+        {/* <Text style={styles.description}>
           1. Challenge the defending champion to capture this location! {'\n'}2. Tap the Attack button to deal damage. {'\n'}3. Defeat them to capture this location!
-        </Text>
+        </Text> */}
       </View>
 
       {/* Battle Timer */}
@@ -1974,31 +1971,31 @@ innerGlow: {
 },
 sparkLine: {
   position: 'absolute',
-  width: 24,
-  height: 4,
+  width: 16,
+  height: 3,
   zIndex: 1000,
-  borderRadius: 2,
+  borderRadius: 1,
 },
 sparkSlash: {
   position: 'absolute',
-  width: 24,
-  height: 4,
+  width: 16,
+  height: 3,
   zIndex: 1000,
-  borderRadius: 2,
+  borderRadius: 1,
 },
 sparkBackslash: {
   position: 'absolute',
-  width: 24,
-  height: 4,
+  width: 16,
+  height: 3,
   zIndex: 1000,
-  borderRadius: 2,
+  borderRadius: 1,
 },
 sparkCross: {
   position: 'absolute',
-  width: 18,
-  height: 4,
+  width: 12,
+  height: 3,
   zIndex: 1000,
-  borderRadius: 2,
+  borderRadius: 1,
 },
 innerGlowLine: {
   position: 'absolute',
@@ -2035,38 +2032,38 @@ innerGlowCross: {
 // Soldering-style spark shapes
 sparkDot: {
   position: 'absolute',
-  width: 3,
-  height: 3,
+  width: 2,
+  height: 2,
   zIndex: 1000,
-  borderRadius: 1.5,
+  borderRadius: 1,
 },
 sparkLine: {
   position: 'absolute',
-  width: 9,
-  height: 1.5,
+  width: 6,
+  height: 1,
   zIndex: 1000,
-  borderRadius: 0.75,
+  borderRadius: 0.5,
 },
 sparkSlash: {
   position: 'absolute',
-  width: 7.5,
-  height: 1.5,
+  width: 5,
+  height: 1,
   zIndex: 1000,
-  borderRadius: 0.75,
+  borderRadius: 0.5,
 },
 sparkBackslash: {
   position: 'absolute',
-  width: 7.5,
-  height: 1.5,
+  width: 5,
+  height: 1,
   zIndex: 1000,
-  borderRadius: 0.75,
+  borderRadius: 0.5,
 },
 sparkCross: {
   position: 'absolute',
-  width: 6,
-  height: 1.5,
+  width: 4,
+  height: 1,
   zIndex: 1000,
-  borderRadius: 0.75,
+  borderRadius: 0.5,
 },
 sparkStar: {
   position: 'absolute',

@@ -53,10 +53,7 @@ export default function TabTwoScreen() {
   const [userId, setUserId] = useState<number | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<ProfileData | null>(null);
-<<<<<<< HEAD
-=======
   const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
->>>>>>> e7acfc5b111a1705d30a9f704cd895b2f5276643
   
   // Map following state
   const [isFollowingUser, setIsFollowingUser] = useState(true);
