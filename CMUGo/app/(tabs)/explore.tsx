@@ -23,8 +23,8 @@ const initMarkers: CustomMarker[] = [
     id: 1,
     latitude: 40.4433,
     longitude: -79.9436,
-    title: 'Purnell Gym',
-    description: 'Catch a Pokémon here!',
+    title: 'Purnell Center',
+    description: 'Arena at the Purnell Center',
     occupant: 'MCS',
     image: require('@/assets/images/icon.png'), // Using your app icon
   },
@@ -37,6 +37,15 @@ const initMarkers: CustomMarker[] = [
     occupant: 'SCS',
     image: require('@/assets/images/react-logo.png'), // Using React logo
   },
+  {
+    id: 3,
+    latitude: 40.4433,
+    longitude: -79.9444,
+    title: 'Gates Center',
+    description: 'Arena at the Gates Center',
+    occupant: 'SCS',
+    image: require('@/assets/images/android-icon-foreground.png'), // Using your app icon
+  }
 ];
 
 // Battle radius in meters
@@ -71,18 +80,18 @@ export default function TabTwoScreen() {
       });
   }, []);
 
-  const handleMarkerPress = (marker: CustomMarker) => {
-    router.push({
-      pathname: '/battle',
-      params: {
-        id: marker.id.toString(),
-        latitude: marker.latitude.toString(),
-        longitude: marker.longitude.toString(),
-        title: marker.title,
-        description: marker.description,
-      },
-    });
-  };
+  const handleBattleStart = (marker: CustomMarker) => {
+  router.push({
+    pathname: '/battle',
+    params: {
+      id: marker.id.toString(),
+      latitude: marker.latitude.toString(),
+      longitude: marker.longitude.toString(),
+      title: marker.title,
+      description: marker.description,
+    },
+  });
+};
 
   useEffect(() => {
     (async () => {
@@ -108,8 +117,6 @@ export default function TabTwoScreen() {
     })();
   }, []);
 
-<<<<<<< HEAD
-=======
   // Watch user location when following
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription | null = null;
@@ -232,7 +239,7 @@ export default function TabTwoScreen() {
           {
             text: 'Battle',
             style: 'default',
-            onPress: () => handleBattle(marker),
+            onPress: () => handleBattleStart(marker),
           },
         ],
         { cancelable: true }
@@ -276,7 +283,6 @@ export default function TabTwoScreen() {
     );
   };
 
->>>>>>> 64703673a557ab6de77d32d71ea8fcfc943b5087
   if (isLoading) {
     return (
       <ThemedView style={styles.container}>
