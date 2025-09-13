@@ -33,9 +33,14 @@ The server will start on `http://localhost:5001`
 All API endpoints are prefixed with `/api`:
 
 ### Authentication (`/api/auth`)
-- `POST /api/auth/login` - User login
-- `POST /api/auth/register` - User registration  
-- `POST /api/auth/logout` - User logout
+- `POST /api/auth/create_account` - Create new user account
+  - Input: `{"username": string, "password": string}`
+  - Success: `{}` (200)
+  - Error: `{"error": string}` (400/409/500)
+- `POST /api/auth/sign_in` - Sign in user
+  - Input: `{"username": string, "password": string}`
+  - Success: `{"token": string, "id": number}` (200)
+  - Error: `{"error": string}` (400/401/500)
 
 ### Profile (`/api/profile`)
 - `GET /api/profile/` - Get user profile
