@@ -1,7 +1,7 @@
 import os
 import jwt
 from functools import wraps
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from database import get_supabase_client
 
 profile_bp = Blueprint('profile', __name__)
@@ -39,7 +39,7 @@ def require_auth(f):
                 return jsonify({'error': 'Invalid token payload'}), 401
             
             # Add user_id to request context
-            request.user_id = user_id
+            g.user_id = user_id
             return f(*args, **kwargs)
             
         except jwt.ExpiredSignatureError:
@@ -67,7 +67,7 @@ def set_picture():
         if not image:
             return jsonify({'error': 'Image data is required'}), 400
         
-        user_id = request.user_id
+        user_id = g.user_id
         
         # Update user's profile picture in the database
         response = supabase.table('users').update({
@@ -90,7 +90,7 @@ def remove_picture():
         return jsonify({'error': 'Database not configured'}), 500
     
     try:
-        user_id = request.user_id
+        user_id = g.user_id
         
         # Set profile picture to null/default
         response = supabase.table('users').update({
@@ -124,7 +124,7 @@ def set_team():
         if not isinstance(team, int):
             return jsonify({'error': 'Team ID must be an integer'}), 400
         
-        user_id = request.user_id
+        user_id = g.user_id
         
         # Update user's team in the database
         response = supabase.table('users').update({
