@@ -20,6 +20,11 @@ export default function TabLayout() {
         tabBarShowLabel: true,
         tabBarStyle: {
           backgroundColor: Colors[colorScheme ?? 'light'].background,
+          // borderTopWidth: 0,
+          borderTopColor:'rgb(0, 0, 0)',
+          elevation: 0,
+          shadowOpacity: 0,
+          paddingTop: 10,
         },
       }}
       >
@@ -30,7 +35,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol 
               size={28} 
-              name="house.fill" 
+              name="trophy.fill" 
               color={color}
               style={{ opacity: focused ? 1 : 0.7 }}
             />
@@ -44,7 +49,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol 
               size={28} 
-              name="paperplane.fill" 
+              name="map.fill" 
               color={color}
               style={{ opacity: focused ? 1 : 0.7 }}
             />
@@ -58,7 +63,7 @@ export default function TabLayout() {
           tabBarIcon: ({color, focused}) => (
             <IconSymbol
               size={28}
-              name="popcorn.fill"
+              name="person.circle.fill"
               color={color}
               style={{opacity: focused ? 1 : 0.7}}
             />

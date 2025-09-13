@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ScrollView, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Colors } from '@/constants/theme';
 
 const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
 
@@ -397,7 +398,8 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f23',
+    backgroundColor: Colors.dark.background,
+    // backgroundColor: '#0f0f23',
   },
   centered: {
     justifyContent: 'center',
@@ -631,9 +633,10 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingTop: 20,
     paddingHorizontal: 20,
-    backgroundColor: '#0f0f23',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    // backgroundColor: '#0f0f23',
+    backgroundColor: Colors.dark.background
+    // borderTopWidth: 1,
+    // borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   logoutButton: {
     backgroundColor: '#F44336',

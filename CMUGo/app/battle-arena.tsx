@@ -297,7 +297,8 @@ export default function BattleArenaScreen() {
       
       // Update local profile stats IMMEDIATELY after storing cooldown
       await updateLocalProfileStats(result);
-      
+      // console.log(id as string);
+      // console.log(battle)
       const response = await fetch(`${databaseUrl}/api/interactions/battle`, {
         method: 'POST',
         headers: {
