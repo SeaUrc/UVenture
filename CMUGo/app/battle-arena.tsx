@@ -4,6 +4,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CustomModal } from '@/components/custom-modal';
 import { useCustomModal } from '@/hooks/use-custom-modal';
+import { LogBox } from 'react-native';
+LogBox.ignoreLogs(['Asyncstorage: ...']); // Ignore log notification by message
+LogBox.ignoreAllLogs(); //Ignore all log notifications
 
 import { Colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
@@ -1084,6 +1087,7 @@ const addNeonIntensity = (color: string) => {
       console.log('Submitting battle result:', {
         id: id,
         score: battleScore,
+        result: result,
         userToken: userToken ? 'present' : 'missing'
       });
 
@@ -1096,6 +1100,7 @@ const addNeonIntensity = (color: string) => {
         body: JSON.stringify({
           id: parseInt(id as string), // Convert to number
           score: battleScore,
+          result: result, // Explicitly send win/lose result to backend
         }),
       });
 
@@ -1114,37 +1119,40 @@ const addNeonIntensity = (color: string) => {
       console.log('Refreshing location data after battle...');
       await fetchLocationData();
       
+      // Only attempt to become owner if BOTH frontend and backend agree it's a win
       if (battleResponse.message === 'win' && result === 'win') {
+        console.log('Player won battle and backend confirmed - becoming owner');
         await becomeOwner(locationData?.name || 'the location');
-          setTimeout(() => {
-            setInitialChampionProfile(null);
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/(tabs)');
-            }
-          }, 1500);
-        exitBattle();
+        setTimeout(() => {
+          setInitialChampionProfile(null);
+          exitBattle();
+        }, 1500);
 
+      } else if (result === 'win' && battleResponse.message !== 'win') {
+        console.log('Player won locally but backend says no win - contested victory');
       } else if (result === 'win') {
         showAlert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
           {
             text: 'OK',
             onPress: () => {
-              exitBattle();
               setTimeout(() => {
                 setInitialChampionProfile(null);
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace('/(tabs)');
-                }
-              }, 1000);
+                exitBattle();
+              }, 5000);
             }
           }
         ]);
-      } else {
+      } else if (result === 'lose') {
         // Player lost - champion remains the same, don't clear their profile
+        console.log('Player lost battle - no championship changes should occur');
+        
+        // SAFETY CHECK: If backend somehow says this lost player won, log an error
+        if (battleResponse.message === 'win') {
+          console.error('CRITICAL ERROR: Backend says player won but frontend determined loss!');
+          console.error('Backend response:', battleResponse);
+          console.error('Frontend result:', result);
+        }
+        
         showAlert(
           'Defeat',
           `You were defeated at ${locationData?.name || 'the location'}. Train harder and try again in ${BATTLE_COOLDOWN_MINUTES} minutes!`,
@@ -1152,19 +1160,19 @@ const addNeonIntensity = (color: string) => {
             {
               text: 'OK',
               onPress: () => {
-                exitBattle();
                 setTimeout(() => {
                   // Don't clear initialChampionProfile when player loses - champion stays the same
-                  if (router.canGoBack()) {
-                    router.back();
-                  } else {
-                    router.replace('/(tabs)');
-                  }
-                }, 1000);
+                  exitBattle();
+                }, 5000);
               }
             }
           ]
         );
+      } else {
+        // Unexpected result - should not happen
+        console.error('Unexpected battle result:', result);
+        console.error('Backend response:', battleResponse);
+        exitBattle();
       }
     } catch (error) {
       console.error('Error submitting battle result:', error);
@@ -1246,9 +1254,6 @@ const addNeonIntensity = (color: string) => {
   };
 
   const exitBattle = () => {
-    // Clear the preserved initial champion profile when exiting
-    // This ensures fresh data when entering a new battle
-    setInitialChampionProfile(null);
     
     // Reset to root and prevent iOS swipe back by going to a fresh tab navigation
     if (router.canGoBack()) {
@@ -1257,6 +1262,7 @@ const addNeonIntensity = (color: string) => {
     // Use setTimeout to ensure dismissAll completes before navigation
     setTimeout(() => {
       router.replace('/(tabs)');
+      router.dismissAll();
     }, 50);
   };
 

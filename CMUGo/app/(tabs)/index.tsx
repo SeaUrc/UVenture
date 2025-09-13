@@ -10,6 +10,10 @@ import { useCustomModal } from '@/hooks/use-custom-modal';
 import { useNavigation } from '@react-navigation/native';
 import { Fonts } from '@/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LogBox } from 'react-native';
+LogBox.ignoreLogs(['Asyncstorage: ...']); // Ignore log notification by message
+LogBox.ignoreAllLogs(); //Ignore all log notifications
+
 
 type LocationData = {
   id: number;
