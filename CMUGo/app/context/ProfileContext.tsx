@@ -19,6 +19,10 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
 export const useProfile = () => {
   const context = useContext(ProfileContext);
-  if (!context) throw new Error('useProfile must be used within a ProfileProvider');
+  if (!context) {
+    // Don't throw an error that might be rendered, just return a default value or log
+    console.error('useProfile must be used within a ProfileProvider');
+    return { profileImage: null, setProfileImage: () => {} };
+  }
   return context;
 };

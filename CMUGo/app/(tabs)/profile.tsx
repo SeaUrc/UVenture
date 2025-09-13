@@ -127,6 +127,18 @@ export default function ProfileScreen() {
           <ThemedText>Unable to load team/affiliation info.</ThemedText>
         )}
       </ThemedView>
+
+      <ThemedView style={styles.section}>
+        <ThemedText type="subtitle">Strength</ThemedText>
+        {loadingProfile ? (
+          <ActivityIndicator size="small" color="#6A5ACD" />
+        ) : profileData && typeof profileData.strength === 'number' ? (
+          <ThemedText>{profileData.strength}</ThemedText>
+        ) : (
+          <ThemedText>Unable to load strength info.</ThemedText>
+        )}
+      </ThemedView>
+      
       <ThemedView style={styles.section}>
         <ThemedText type="subtitle">Profile Image</ThemedText>
         <View style={{ alignItems: 'center' }}>
