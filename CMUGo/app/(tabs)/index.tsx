@@ -24,7 +24,7 @@ type LocationData = {
 };
 
 // --- MODIFICATION: Define constants for map camera settings ---
-const BATTLE_RADIUS = 35;
+const BATTLE_RADIUS = 100;
 const MAP_ALTITUDE = 450; // Set a much higher initial elevation (in meters)
 const MAP_PITCH = 45; // Set the camera pitch
 
@@ -238,7 +238,7 @@ export default function TabTwoScreen() {
     if (withinRadius) {
       Alert.alert(
         locationData.name,
-        `Owned by: ${locationData.owner_team_name}\nOwners: ${locationData.owner_count}\n\nYou are within battle range!`,
+        `Current Champion: ${locationData.owner_team_name}\n\nYou are within battle range!`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Battle', style: 'default', onPress: () => handleBattleStart(locationData) },

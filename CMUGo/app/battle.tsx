@@ -18,6 +18,7 @@ type LocationData = {
   owner_count: number;
   owned_since: string;
   strongest_owner_id: number;
+  can_join: boolean;
 };
 
 type ProfileData = {
@@ -27,16 +28,19 @@ type ProfileData = {
 };
 
 // Mock enemy avatars based on team colors
-const getEnemyAvatar = (teamColor: string) => {
-  const avatarMap = {
-    '#FF0000': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png',
-    '#0000FF': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png',
-    '#00FF00': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png',
-    '#FFFF00': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png',
+const getEnemyAvatar = (teamId: string | number) => {
+  const avatarMap: { [key: string]: string } = {
+    '1': '../assets/images/cmulogos/scs.png',    // Team 1
+    '2': '../assets/images/cmulogos/cit.png',    // Team 2  
+    '3': '../assets/images/cmulogos/dietrich.png',    // Team 3
+    '4': '../assets/images/cmulogos/cfa.png',    // Team 4
+    '5': '../assets/images/cmulogos/mcs.jpg',    // Team 5
+    '6': '../assets/images/cmulogos/tepper.jpg',    // Team 6  
+    '7': '../assets/images/cmulogos/bxa.jpeg',    // Team 7
+    '8': '../assets/images/cmulogos/is.png',    // Team 8
   };
-  return avatarMap[teamColor] || 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png';
+  return avatarMap[String(teamId)] || '../assets/images/icon.png';
 };
-
 const BATTLE_COOLDOWN_MINUTES = 5;
 
 export default function BattleScreen() {
@@ -60,6 +64,7 @@ export default function BattleScreen() {
   const [isUserOwner, setIsUserOwner] = useState(false);
   const [isUserStrongestOwner, setIsUserStrongestOwner] = useState(false);
   const [canBattle, setCanBattle] = useState(true);
+  const [userJoinedTeam, setUserJoinedTeam] = useState(false);
 
   useEffect(() => {
     const getAuthData = async () => {
@@ -84,6 +89,21 @@ export default function BattleScreen() {
       checkUserOwnership();
     }
   }, [id, userToken, userId]);
+
+  // Check if user joined the team (same team as location owner but can still join)
+  useEffect(() => {
+    if (locationData && userProfile) {
+      const sameTeam = userProfile.team === locationData.owner_team.toString();
+      const notStrongestOwner = locationData.strongest_owner_id !== userId;
+      const canJoinLocation = locationData.can_join;
+      
+      // User is considered to have "joined the team" if they're on the same team 
+      // as the owner but can still join (meaning they joined recently)
+      setUserJoinedTeam(sameTeam && notStrongestOwner && canJoinLocation);
+    } else {
+      setUserJoinedTeam(false);
+    }
+  }, [locationData, userProfile, userId]);
 
   // Check if user is an owner of this location
   const checkUserOwnership = async () => {
@@ -369,7 +389,7 @@ export default function BattleScreen() {
         team: enemyTeamName || strongestOwnerProfile.team, // Use enemy team name if available, fall back to team ID
       };
     }
-    
+
     return {
       name: locationData?.owner_team_name || 'Defending Team',
       image: getEnemyAvatar(locationData?.owner_team_color || '#FF0000'),
@@ -390,6 +410,14 @@ export default function BattleScreen() {
     }
     if (isUserStrongestOwner) {
       return { text: 'You Are Defending Champion', disabled: true };
+    }
+    // Check if user joined the team (can join their own team's location)
+    if (userJoinedTeam) {
+      return { text: 'Join Your Team First', disabled: true };
+    }
+    // Check if user is on the same team as the current owner (but can't join)
+    if (userProfile && locationData && userProfile.team === locationData.owner_team.toString()) {
+      return { text: 'Your Team Controls This Location', disabled: true };
     }
     return { text: 'Enter Battle Arena', disabled: false };
   };
@@ -414,15 +442,26 @@ export default function BattleScreen() {
                 Current Owner: {locationData.owner_team_name}
               </Text>
               <Text style={styles.locationDetail}>
-                Team Members: {locationData.owner_count}
-              </Text>
-              <Text style={styles.locationDetail}>
                 Defending Champion: {
                   isUserStrongestOwner 
                     ? 'You!' 
                     : strongestOwnerProfile?.username || 'No current champion'
                 }
               </Text>
+              
+              {/* Defender count display */}
+              <View style={styles.defenderCountContainer}>
+                <Text style={styles.defenderCountLabel}>Defenders</Text>
+                <Text style={styles.defenderCountValue}>{Math.max(0, (locationData.owner_count || 0) - 1)}</Text>
+                <Text style={styles.defenderCountSubtext}>
+                  protecting this location
+                </Text>
+                {userJoinedTeam && (
+                  <Text style={styles.joinAvailableText}>
+                    ✨ You can join this defense team!
+                  </Text>
+                )}
+              </View>
             </>
           )}
         </View>
@@ -434,33 +473,53 @@ export default function BattleScreen() {
           </Text>
           
           <View style={styles.fightCard}>
-            {/* User Side */}
-            <View style={styles.fighterSide}>
-              <Image 
-                source={
-                  userInfo.image 
-                    ? { uri: userInfo.image }
-                    : require('../assets/images/icon.png')
-                } 
-                style={styles.fighterImage} 
-              />
-              <Text style={styles.fighterName}>{userInfo.name}</Text>
-              <Text style={styles.fighterTeam}>{userInfo.team}</Text>
-            </View>
+            {isUserStrongestOwner ? (
+              /* Champion Mode - Show only user profile */
+              <View style={styles.championDisplay}>
+                <View style={styles.fighterSide}>
+                  <Image 
+                    source={
+                      userInfo.image 
+                        ? { uri: userInfo.image }
+                        : require('../assets/images/icon.png')
+                    } 
+                    style={styles.fighterImage} 
+                  />
+                  <Text style={styles.fighterName}>{userInfo.name}</Text>
+                  <Text style={styles.fighterTeam}>{userInfo.team}</Text>
+                </View>
+                <Text style={styles.championText}>👑 Current Champion</Text>
+              </View>
+            ) : (
+              /* Battle Mode - Show both fighters */
+              <>
+                {/* User Side */}
+                <View style={styles.fighterSide}>
+                  <Image 
+                    source={
+                      userInfo.image 
+                        ? { uri: userInfo.image }
+                        : require('../assets/images/icon.png')
+                    } 
+                    style={styles.fighterImage} 
+                  />
+                  <Text style={styles.fighterName}>{userInfo.name}</Text>
+                  <Text style={styles.fighterTeam}>{userInfo.team}</Text>
+                </View>
 
-            <Text style={styles.vsText}>
-              {isUserOwner || isUserStrongestOwner ? '👑' : 'VS'}
-            </Text>
+                <Text style={styles.vsText}>VS</Text>
 
-            {/* Enemy Side */}
-            <View style={styles.fighterSide}>
-              <Image 
-                source={{ uri: enemyInfo.image }} 
-                style={styles.fighterImage} 
-              />
-              <Text style={styles.fighterName}>{enemyInfo.name}</Text>
-              <Text style={styles.fighterTeam}>{enemyInfo.team}</Text>
-            </View>
+                {/* Enemy Side */}
+                <View style={styles.fighterSide}>
+                  <Image 
+                    source={{ uri: enemyInfo.image }} 
+                    style={styles.fighterImage} 
+                  />
+                  <Text style={styles.fighterName}>{enemyInfo.name}</Text>
+                  <Text style={styles.fighterTeam}>{enemyInfo.team}</Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -742,5 +801,58 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: 18,
+  },
+<<<<<<< HEAD
+  defenderCountContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+  defenderCountLabel: {
+    fontSize: 12,
+    color: '#FFD700',
+    fontWeight: '600',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  defenderCountValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+    marginBottom: 2,
+  },
+  defenderCountSubtext: {
+    fontSize: 11,
+    color: '#CCC',
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+  joinAvailableText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    textAlign: 'center',
+    marginTop: 6,
+    fontWeight: '600',
+=======
+  championDisplay: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  championText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFD700',
+    textAlign: 'center',
+    marginTop: 15,
+>>>>>>> 5a1ae85b01e8d88c0f4432d5dd91fb554ead6c7b
   },
 });

@@ -1,10 +1,14 @@
 from flask import Blueprint, request, jsonify
 from database import get_supabase_client
+from datetime import datetime, timezone, timedelta
 
 locations_bp = Blueprint('locations', __name__)
 
 # Get Supabase client
 supabase = get_supabase_client()
+
+# Constants
+CAN_JOIN_PERIOD = 30 * 60  # 30 minutes in seconds
 
 @locations_bp.route('/get_locations', methods=['GET'])
 def get_locations():
@@ -37,6 +41,31 @@ def get_locations():
                 'owned_since': location.get('owned_since'),
                 'strongest_owner_id': location.get('strongest_owner_id')
             }
+            
+            # Calculate can_join based on owned_since timestamp
+            can_join = False
+            owned_since = location.get('owned_since')
+            if owned_since:
+                try:
+                    # Parse the owned_since timestamp (assuming it's in ISO format)
+                    owned_since_dt = datetime.fromisoformat(owned_since.replace('Z', '+00:00'))
+                    # Convert to server's local timezone (UTC in this case)
+                    if owned_since_dt.tzinfo is None:
+                        owned_since_dt = owned_since_dt.replace(tzinfo=timezone.utc)
+                    
+                    # Get current server time
+                    current_time = datetime.now(timezone.utc)
+                    
+                    # Calculate time difference in seconds
+                    time_diff = (current_time - owned_since_dt).total_seconds()
+                    
+                    # Location can be joined if more than CAN_JOIN_PERIOD seconds have passed
+                    can_join = time_diff > CAN_JOIN_PERIOD
+                except (ValueError, TypeError):
+                    # If timestamp parsing fails, default to False
+                    can_join = False
+            
+            location_obj['can_join'] = can_join
             
             # Add team information if owner_team exists
             owner_team_id = location.get('owner_team')

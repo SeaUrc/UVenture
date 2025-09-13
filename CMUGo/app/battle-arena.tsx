@@ -20,11 +20,12 @@ type LocationData = {
   owner_count: number;
   owned_since: string;
   strongest_owner_id: number;
+  can_join: boolean;
 };
 
 type ProfileData = {
   username: string;
-  team: string;
+  team: number;
   image: string;
   strength?: number;
   wins?: number;
@@ -41,14 +42,18 @@ type Sparkle = {
 };
 
 // Mock enemy avatars based on team colors
-const getEnemyAvatar = (teamColor: string) => {
-  const avatarMap = {
-    '#FF0000': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png',
-    '#0000FF': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png',
-    '#00FF00': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png',
-    '#FFFF00': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png',
+const getEnemyAvatar = (teamId: string | number) => {
+  const avatarMap: { [key: string]: string } = {
+    '1': '../assets/images/cmulogos/scs.png',    // Team 1
+    '2': '../assets/images/cmulogos/cit.png',    // Team 2  
+    '3': '../assets/images/cmulogos/dietrich.png',    // Team 3
+    '4': '../assets/images/cmulogos/cfa.png',    // Team 4
+    '5': '../assets/images/cmulogos/mcs.jpg',    // Team 5
+    '6': '../assets/images/cmulogos/tepper.jpg',    // Team 6  
+    '7': '../assets/images/cmulogos/bxa.jpeg',    // Team 7
+    '8': '../assets/images/cmulogos/is.png',    // Team 8
   };
-  return avatarMap[teamColor] || 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png';
+  return avatarMap[String(teamId)] || '../assets/images/icon.png';
 };
 
 const BATTLE_COOLDOWN_MINUTES = 1;
@@ -81,6 +86,59 @@ export default function BattleArenaScreen() {
   // Auth state
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
+  
+  // Join arena state
+  const [canJoinArena, setCanJoinArena] = useState(false);
+  const [hasJoinedArena, setHasJoinedArena] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  
+  const [buttonPadding, setButtonPadding] = useState({
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0
+});
+
+
+  const [buttonPosition] = useState({
+  x: new Animated.Value(0),
+  y: new Animated.Value(0)
+});
+const [isButtonMoving, setIsButtonMoving] = useState(false);
+
+// Add this function to start button movement when battle begins
+const startButtonMovement = () => {
+  setIsButtonMoving(true);
+  animateButtonMovement();
+};
+
+
+// Add this function to handle the slow button movement
+const animateButtonMovement = () => {
+  if (!battleStarted || battleResult) {
+    setIsButtonMoving(false);
+    return;
+  }
+
+  // Generate random padding values to move the button around
+  const maxPadding = 80; // Maximum pixels to move in any direction
+  const randomTop = Math.floor(Math.random() * maxPadding);
+  const randomRight = Math.floor(Math.random() * maxPadding);
+  const randomBottom = Math.floor(Math.random() * maxPadding);
+  const randomLeft = Math.floor(Math.random() * maxPadding);
+
+  setButtonPadding({
+    top: randomTop,
+    right: randomRight,
+    bottom: randomBottom,
+    left: randomLeft
+  });
+
+  // Continue moving if battle is still active
+  if (battleStarted && !battleResult) {
+    setTimeout(() => animateButtonMovement(), 1000 + Math.random() * 2000); // Random pause 1-3 seconds
+  }
+};
 
   useEffect(() => {
     const getAuthData = async () => {
@@ -104,6 +162,25 @@ export default function BattleArenaScreen() {
     }
   }, [id, userToken, userId]);
 
+  // Check if user can join arena when location data or user profile changes
+  useEffect(() => {
+    if (locationData && userProfile) {
+      // User can join if:
+      // 1. Their team owns the location
+      // 2. They're not already the strongest owner  
+      // 3. The location allows joining (can_join is true)
+      const sameTeam = locationData.owner_team === userProfile.team;
+      const notStrongestOwner = locationData.strongest_owner_id !== userId;
+      const canJoinLocation = locationData.can_join;
+      
+      setCanJoinArena(sameTeam && notStrongestOwner && canJoinLocation);
+      setHasJoinedArena(!notStrongestOwner); // If they are the strongest owner, they've "joined"
+    } else {
+      setCanJoinArena(false);
+      setHasJoinedArena(false);
+    }
+  }, [locationData, userProfile, userId]);
+
   // Reset tap count when battle starts/ends
   useEffect(() => {
     if (!battleStarted || battleResult) {
@@ -111,6 +188,41 @@ export default function BattleArenaScreen() {
       setSparkles([]);
     }
   }, [battleStarted, battleResult]);
+
+  // Handle joining the arena
+  const handleJoinArena = async () => {
+    if (!userToken || !id || isJoining) return;
+    
+    setIsJoining(true);
+    
+    try {
+      const response = await fetch(`${databaseUrl}/api/interactions/become_owner`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`,
+        },
+        body: JSON.stringify({
+          id: parseInt(id as string),
+        }),
+      });
+
+      if (response.ok) {
+        // Success - refresh location data to show updated owner count
+        await fetchLocationData();
+        setHasJoinedArena(true);
+        Alert.alert('Success!', 'You have joined the arena as a defender!');
+      } else {
+        const errorData = await response.json();
+        Alert.alert('Error', errorData.error || 'Failed to join arena');
+      }
+    } catch (error) {
+      console.error('Error joining arena:', error);
+      Alert.alert('Error', 'Failed to join arena. Please try again.');
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   // Get button color based on tap coun
 
@@ -518,7 +630,12 @@ const addNeonIntensity = (color: string) => {
     setBattleResult(null);
     setTapCount(0);
     setSparkles([]);
-  };
+    
+    // Start button movement after a brief delay
+    setTimeout(() => {
+        startButtonMovement();
+    }, 100);
+    };
 
   const calculateDamage = (attackerStrength: number, defenderStrength: number): number => {
   // Ensure strength values are within valid range (1-100)
@@ -891,7 +1008,14 @@ const addNeonIntensity = (color: string) => {
   };
 
   const exitBattle = () => {
-    router.replace('/(tabs)');
+    // Reset to root and prevent iOS swipe back by going to a fresh tab navigation
+    if (router.canGoBack()) {
+      router.dismissAll();
+    }
+    // Use setTimeout to ensure dismissAll completes before navigation
+    setTimeout(() => {
+      router.replace('/(tabs)');
+    }, 50);
   };
 
   // Get display info for both fighters
@@ -914,38 +1038,40 @@ const addNeonIntensity = (color: string) => {
   };
 
   const getEnemyDisplayInfo = () => {
-    if (strongestOwnerProfile) {
-      return {
-        name: strongestOwnerProfile.username,
-        image: strongestOwnerProfile.image 
-          ? `data:image/png;base64,${strongestOwnerProfile.image}` 
-          : getEnemyAvatar(locationData?.owner_team_color || '#FF0000'),
-        team: strongestOwnerProfile.team,
-      };
-    }
-    
+  if (strongestOwnerProfile) {
     return {
-      name: locationData?.owner_team_name || 'Enemy Team',
-      image: getEnemyAvatar(locationData?.owner_team_color || '#FF0000'),
-      team: locationData?.owner_team_name || 'Unknown Team',
+      name: strongestOwnerProfile.username,
+      image: strongestOwnerProfile.image 
+        ? `data:image/png;base64,${strongestOwnerProfile.image}` 
+        : getEnemyAvatar(strongestOwnerProfile.team), 
+      team: strongestOwnerProfile.team,
     };
+  }
+  
+  return {
+    name: locationData?.owner_team_name || 'Enemy Team',
+    image: getEnemyAvatar(locationData?.owner_team || '1'), 
+    team: locationData?.owner_team_name || 'Unknown Team',
   };
+};
 
   const userInfo = getUserDisplayInfo();
   const enemyInfo = getEnemyDisplayInfo();
 
   // Calculate animated transform for attack button
   const animatedButtonStyle = {
-    transform: [
-      { scale: buttonScale },
-      { 
-        rotate: buttonRotation.interpolate({
-          inputRange: [-1, 1],
-          outputRange: ['-5.73deg', '5.73deg'] // -0.1 to 0.1 radians converted to degrees
-        })
-      }
-    ]
-  };
+  transform: [
+    { translateX: buttonPosition.x },
+    { translateY: buttonPosition.y },
+    { scale: buttonScale },
+    { 
+      rotate: buttonRotation.interpolate({
+        inputRange: [-1, 1],
+        outputRange: ['-5.73deg', '5.73deg']
+      })
+    }
+  ]
+};
 
   return (
     <View style={styles.container}>
@@ -1022,21 +1148,39 @@ const addNeonIntensity = (color: string) => {
             <Text style={styles.resultSubtext}>
               Health Remaining: {playerHealth}/100
             </Text>
-            <Text style={styles.resultSubtext}>
-              Total Attacks: {tapCount}
-            </Text>
           </View>
         )}
       </View>
 
       {/* Battle Controls */}
       <View style={styles.controls}>
+        {/* Join Arena Button - Show when user can join */}
+        {canJoinArena && !hasJoinedArena && !battleStarted && (
+          <TouchableOpacity 
+            style={[styles.joinButton, isJoining && styles.joinButtonDisabled]} 
+            onPress={handleJoinArena}
+            disabled={isJoining}
+          >
+            <Text style={styles.joinButtonText}>
+              {isJoining ? 'Joining...' : 'Join Arena'}
+            </Text>
+          </TouchableOpacity>
+        )}
+        
         {battleResult || !battleStarted ? (
           <TouchableOpacity style={styles.exitButton} onPress={exitBattle}>
             <Text style={styles.exitButtonText}>Exit Arena</Text>
           </TouchableOpacity>
         ) : (
-          <View style={styles.attackButtonContainer}>
+          <View style={[
+  styles.attackButtonContainer,
+  {
+    paddingTop: buttonPadding.top,
+    paddingRight: buttonPadding.right,
+    paddingBottom: buttonPadding.bottom,
+    paddingLeft: buttonPadding.left,
+  }
+]}>
         
     
             {/* Sparkles with realistic soldering effects and aura */}
@@ -1101,6 +1245,12 @@ const addNeonIntensity = (color: string) => {
                     shadowOpacity: 0.6,
                     shadowRadius: 8,
                     shadowOffset: { width: 0, height: 0 },
+                    transform: [
+                        { scale: buttonScale._value || 1 },
+                        { 
+                            rotate: `${(buttonRotation._value || 0) * 5.73}deg`
+                        }
+                    ]
                   }
                 ]} 
                 onPress={playerAttack}
@@ -1179,7 +1329,7 @@ const styles = StyleSheet.create({
   battleField: {
     flex: 1,
     justifyContent: 'center',
-    minHeight: 160,
+    minHeight: 150,
     paddingVertical: 24,
   },
   combatArea: {
@@ -1366,28 +1516,34 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
   attackButton: {
-    backgroundColor: '#FF5722',
-    paddingHorizontal: 48,
-    paddingVertical: 20,
-    borderRadius: 35,
-    shadowColor: '#FF5722',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 12,
-    minWidth: 180,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  attackButtonText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    letterSpacing: 1,
-  },
+  backgroundColor: '#FF5722',
+  width: 120, // Make it circular
+  height: 120, // Same width and height
+  borderRadius: 60, // Half of width/height for perfect circle
+  shadowColor: '#FF5722',
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.4,
+  shadowRadius: 12,
+  elevation: 12,
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderWidth: 3,
+  borderColor: 'rgba(255, 255, 255, 0.3)',
+},
+attackButtonText: {
+  color: '#FFFFFF',
+  fontSize: 18, // Slightly smaller to fit in circle
+  fontWeight: 'bold',
+  textAlign: 'center',
+  letterSpacing: 1,
+},
+attackButtonContainer: {
+  position: 'relative',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 300, // Larger area for movement
+  height: 300, // Larger area for movement
+},
   exitButton: {
     backgroundColor: '#666',
     paddingHorizontal: 36,
@@ -1411,13 +1567,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.5,
   },
-  attackButtonContainer: {
-  position: 'relative',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 250,
-  height: 250,
-},
+  joinButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 36,
+    paddingVertical: 16,
+    borderRadius: 28,
+    minWidth: 160,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    marginBottom: 12,
+  },
+  joinButtonDisabled: {
+    backgroundColor: '#666',
+    shadowColor: '#666',
+    opacity: 0.7,
+  },
+  joinButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
 sparkle: {
   position: 'absolute',
   width: 8,
