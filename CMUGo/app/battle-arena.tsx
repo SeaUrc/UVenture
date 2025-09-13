@@ -306,7 +306,7 @@ export default function BattleArenaScreen() {
           'Authorization': `Bearer ${userToken}`,
         },
         body: JSON.stringify({
-          id: parseInt(id as string),
+          id: id,
           score: battleScore,
         }),
       });
