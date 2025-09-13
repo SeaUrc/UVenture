@@ -66,6 +66,7 @@ export default function BattleScreen() {
   const [canBattle, setCanBattle] = useState(true);
   const [userJoinedTeam, setUserJoinedTeam] = useState(false);
   const [waitingToJoin, setWaitingToJoin] = useState(false);
+  const [onSameTeam, setOnSameTeam] = useState(false);
 
   useEffect(() => {
     const getAuthData = async () => {
@@ -94,20 +95,50 @@ export default function BattleScreen() {
   // Check if user joined the team (same team as location owner but can still join)
   useEffect(() => {
     if (locationData && userProfile) {
-      const sameTeam = userProfile.team === locationData.owner_team.toString();
+      // Ensure both values are strings for comparison
+      const userTeamStr = String(userProfile.team);
+      const ownerTeamStr = String(locationData.owner_team);
+      const sameTeam = userTeamStr === ownerTeamStr;
       const notStrongestOwner = locationData.strongest_owner_id !== userId;
       const canJoinLocation = locationData.can_join;
       
+      console.log('Team check debug:', {
+        userTeam: userProfile.team,
+        userTeamStr,
+        ownerTeam: locationData.owner_team,
+        ownerTeamStr,
+        sameTeam,
+        notStrongestOwner,
+        canJoinLocation,
+        strongestOwnerId: locationData.strongest_owner_id,
+        userId
+      });
+      
       // User is considered to have "joined the team" if they're on the same team 
       // as the owner but can still join (meaning they joined recently)
-      setUserJoinedTeam(sameTeam && notStrongestOwner && canJoinLocation);
+      const shouldJoinTeam = sameTeam && notStrongestOwner && canJoinLocation;
+      setUserJoinedTeam(shouldJoinTeam);
       
       // User is waiting to join if they're on the same team, not the strongest owner,
       // but can't join yet (can_join is false)
-      setWaitingToJoin(sameTeam && notStrongestOwner && !canJoinLocation);
+      const shouldWaitToJoin = sameTeam && notStrongestOwner && !canJoinLocation;
+      setWaitingToJoin(shouldWaitToJoin);
+      
+      // Set onSameTeam indicator - user is on same team (always show when on same team)
+      // This covers when user is on same team and just needs to know they won't be challenging
+      // Only exclude if user is the strongest owner (they get their own champion display)
+      const shouldShowSameTeam = sameTeam && notStrongestOwner;
+      setOnSameTeam(shouldShowSameTeam);
+      
+      console.log('State updates:', {
+        userJoinedTeam: shouldJoinTeam,
+        waitingToJoin: shouldWaitToJoin,
+        onSameTeam: shouldShowSameTeam
+      });
     } else {
       setUserJoinedTeam(false);
       setWaitingToJoin(false);
+      setOnSameTeam(false);
     }
   }, [locationData, userProfile, userId]);
 
@@ -304,7 +335,7 @@ export default function BattleScreen() {
 
   // Cooldown timer effect
   useEffect(() => {
-    let cooldownTimer: NodeJS.Timeout;
+    let cooldownTimer: ReturnType<typeof setInterval>;
     
     if (cooldownActive && cooldownTimeLeft > 0) {
       cooldownTimer = setInterval(() => {
@@ -425,7 +456,11 @@ export default function BattleScreen() {
     if (waitingToJoin) {
       return { text: 'Waiting to Join Team', disabled: true };
     }
-    // Check if user is on the same team as the current owner (but can't join)
+    // Check if user is on the same team (green indicator case)
+    if (onSameTeam) {
+      return { text: 'Your Team Controls This Location', disabled: true };
+    }
+    // Check if user is on the same team as the current owner (fallback case)
     if (userProfile && locationData && userProfile.team === locationData.owner_team.toString()) {
       return { text: 'Your Team Controls This Location', disabled: true };
     }
@@ -476,6 +511,28 @@ export default function BattleScreen() {
                     ⏳ Waiting to join defense team...
                   </Text>
                 )}
+                {onSameTeam && (
+                  <Text style={styles.sameTeamText}>
+                    🛡️ Your team controls this location
+                  </Text>
+                )}
+                {/* Debug info to help troubleshoot */}
+                {/* {locationData && userProfile && (
+                  <View style={{ marginTop: 8, padding: 8, backgroundColor: 'rgba(255,0,0,0.1)', borderRadius: 4 }}>
+                    <Text style={{ color: '#FF6B6B', fontSize: 10, textAlign: 'center' }}>
+                      DEBUG - User: {userProfile.team} ({typeof userProfile.team}) | Owner: {locationData.owner_team} ({typeof locationData.owner_team})
+                    </Text>
+                    <Text style={{ color: '#FF6B6B', fontSize: 10, textAlign: 'center' }}>
+                      UserStr: {String(userProfile.team)} | OwnerStr: {String(locationData.owner_team)} | CanJoin: {String(locationData.can_join)}
+                    </Text>
+                    <Text style={{ color: '#FF6B6B', fontSize: 10, textAlign: 'center' }}>
+                      SameTeam: {String(String(userProfile.team) === String(locationData.owner_team))} | NotStrongest: {String(locationData.strongest_owner_id !== userId)}
+                    </Text>
+                    <Text style={{ color: '#FF6B6B', fontSize: 10, textAlign: 'center' }}>
+                      States - Joined: {String(userJoinedTeam)} | Waiting: {String(waitingToJoin)}
+                    </Text>
+                  </View>
+                )} */}
               </View>
             </>
           )}
@@ -863,5 +920,24 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontWeight: '600',
     opacity: 0.9,
+  },
+  sameTeamText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    textAlign: 'center',
+    marginTop: 6,
+    fontWeight: '600',
+    opacity: 0.9,
+  },
+  championDisplay: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  championText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFD700',
+    textAlign: 'center',
+    marginTop: 15,
   },
 });
