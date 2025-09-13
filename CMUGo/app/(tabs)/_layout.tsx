@@ -36,7 +36,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol 
               size={28} 
-              name="house.fill" 
+              name="trophy.fill" 
               color={color}
               style={{ opacity: focused ? 1 : 0.7 }}
             />
@@ -50,7 +50,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol 
               size={28} 
-              name="paperplane.fill" 
+              name="map.fill" 
               color={color}
               style={{ opacity: focused ? 1 : 0.7 }}
             />
@@ -64,7 +64,7 @@ export default function TabLayout() {
           tabBarIcon: ({color, focused}) => (
             <IconSymbol
               size={28}
-              name="popcorn.fill"
+              name="person.circle.fill"
               color={color}
               style={{opacity: focused ? 1 : 0.7}}
             />
