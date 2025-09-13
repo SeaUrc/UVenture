@@ -24,20 +24,6 @@ export default function TabLayout() {
       }}
       >
       <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color, focused }) => (
-            <IconSymbol 
-              size={28} 
-              name="paperplane.fill" 
-              color={color}
-              style={{ opacity: focused ? 1 : 0.7 }}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="leaderboard"
         options={{
           title: 'Leaderboard',
@@ -45,6 +31,20 @@ export default function TabLayout() {
             <IconSymbol 
               size={28} 
               name="house.fill" 
+              color={color}
+              style={{ opacity: focused ? 1 : 0.7 }}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Explore',
+          tabBarIcon: ({ color, focused }) => (
+            <IconSymbol 
+              size={28} 
+              name="paperplane.fill" 
               color={color}
               style={{ opacity: focused ? 1 : 0.7 }}
             />
