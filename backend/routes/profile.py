@@ -139,7 +139,7 @@ def set_team():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@profile_bp.route('/get_profile', methods=['GET'])
+@profile_bp.route('/get_profile', methods=['POST'])
 def get_profile():
     """Get the profile of a user by ID"""
     if not supabase:

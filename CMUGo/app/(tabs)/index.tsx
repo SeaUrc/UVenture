@@ -455,7 +455,7 @@ const handleMarkerPress = (locationData: LocationData) => {
   if (!location) {
     return (
       <ThemedView style={styles.container}>
-        <View style={styles.header}>
+        {/* <View style={styles.header}>
           <ThemedText style={[styles.title, { fontFamily: Fonts.rounded }]}>
             Explore
           </ThemedText>
@@ -464,7 +464,7 @@ const handleMarkerPress = (locationData: LocationData) => {
               <ThemedText style={styles.logoutText}>Logout</ThemedText>
             </TouchableOpacity>
           )}
-        </View>
+        </View> */}
         <ThemedText style={styles.errorText}>Unable to get your location</ThemedText>
       </ThemedView>
     );
@@ -472,7 +472,7 @@ const handleMarkerPress = (locationData: LocationData) => {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
+      {/* <View style={styles.header}>
         <ThemedText style={[styles.title, { fontFamily: Fonts.rounded }]}>
           Explore
         </ThemedText>
@@ -481,7 +481,7 @@ const handleMarkerPress = (locationData: LocationData) => {
             <ThemedText style={styles.logoutText}>Logout</ThemedText>
           </TouchableOpacity>
         )}
-      </View>
+      </View> */}
       <View style={styles.mapContainer}>
         <MapView
           ref={mapRef}

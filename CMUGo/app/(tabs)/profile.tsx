@@ -361,27 +361,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Owned Locations */}
-        <View style={styles.locationsContainer}>
-          <Text style={styles.sectionTitle}>Owned Locations ({ownedLocations.length})</Text>
-          {ownedLocations.length > 0 ? (
-            <View style={styles.locationsList}>
-              {ownedLocations.slice(0, 5).map((location, index) => (
-                <View key={location.id} style={styles.locationCard}>
-                  <View style={[styles.locationDot, { backgroundColor: location.owner_team_color }]} />
-                  <Text style={styles.locationName}>{location.name}</Text>
-                  <Text style={styles.locationTeam}>{location.owner_team_name}</Text>
-                </View>
-              ))}
-              {ownedLocations.length > 5 && (
-                <Text style={styles.moreText}>+{ownedLocations.length - 5} more locations</Text>
-              )}
-            </View>
-          ) : (
-            <Text style={styles.emptyText}>No locations owned yet</Text>
-          )}
-        </View>
-
         {/* Defending Locations */}
         <View style={styles.locationsContainer}>
           <Text style={styles.sectionTitle}>Defending Champion ({defendingLocations.length})</Text>
@@ -403,36 +382,6 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Achievements */}
-        <View style={styles.achievementsContainer}>
-          <Text style={styles.sectionTitle}>Achievements</Text>
-          <View style={styles.achievementsList}>
-            {(profileData.best_streak || 0) >= 5 && (
-              <View style={styles.achievementBadge}>
-                <Text style={styles.achievementIcon}>🔥</Text>
-                <Text style={styles.achievementText}>Hot Streak</Text>
-              </View>
-            )}
-            {(profileData.locations_conquered || 0) >= 10 && (
-              <View style={styles.achievementBadge}>
-                <Text style={styles.achievementIcon}>🏆</Text>
-                <Text style={styles.achievementText}>Conqueror</Text>
-              </View>
-            )}
-            {getWinRate() >= 80 && (
-              <View style={styles.achievementBadge}>
-                <Text style={styles.achievementIcon}>⚔️</Text>
-                <Text style={styles.achievementText}>Warrior</Text>
-              </View>
-            )}
-            {(profileData.total_score || 0) >= 1000 && (
-              <View style={styles.achievementBadge}>
-                <Text style={styles.achievementIcon}>⭐</Text>
-                <Text style={styles.achievementText}>Elite</Text>
-              </View>
-            )}
-          </View>
-        </View>
       </ScrollView>
 
       {/* Logout Button */}
