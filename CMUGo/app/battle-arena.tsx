@@ -776,8 +776,8 @@ export default function BattleArenaScreen() {
         }),
       });
 
-      console.log('Become owner response status:', response.status);
-
+      // console.log('Become owner response status:', response.status);
+      // console.log('Res', response.json());
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Become owner error response:', errorText);
