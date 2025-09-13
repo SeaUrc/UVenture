@@ -38,7 +38,6 @@ type TeamStats = {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const navigation = useNavigation();
   
   // Auth state
   const [userToken, setUserToken] = useState<string | null>(null);
@@ -77,42 +76,45 @@ export default function ProfileScreen() {
     }
   }, [userToken, userId]);
 
-  // Add focus listener to refresh profile when returning from battle
-  useEffect(() => {
-    const checkForUpdatedData = async () => {
-      try {
-        const updatedData = await AsyncStorage.getItem('updatedProfileData');
-        if (updatedData) {
-          const parsedData = JSON.parse(updatedData);
-          console.log('Found updated profile data from battle:', parsedData);
+  // Use useFocusEffect to check for updates when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkForUpdatedData = async () => {
+        try {
+          const updatedData = await AsyncStorage.getItem('updatedProfileData');
+          console.log('Checking for updated profile data:', updatedData);
           
-          // Use the updated data temporarily while we fetch fresh data
-          setProfileData(parsedData);
-          
-          // Clear the temporary data
-          await AsyncStorage.removeItem('updatedProfileData');
-          
-          // Fetch fresh data from server
-          setTimeout(async () => {
-            await fetchUserProfile();
-          }, 1000);
+          if (updatedData) {
+            const parsedData = JSON.parse(updatedData);
+            console.log('Found updated profile data from battle:', parsedData);
+            
+            // Update the profile data immediately
+            setProfileData(prevData => ({
+              ...prevData,
+              ...parsedData
+            }));
+            
+            // Clear the temporary data
+            await AsyncStorage.removeItem('updatedProfileData');
+            console.log('Cleared temporary profile data');
+            
+            // Fetch fresh data from server after showing updated data
+            setTimeout(async () => {
+              console.log('Fetching fresh profile data from server');
+              await fetchUserProfile();
+            }, 2000);
+          }
+        } catch (error) {
+          console.error('Error checking for updated profile data:', error);
         }
-      } catch (error) {
-        console.error('Error checking for updated profile data:', error);
+      };
+
+      // Only check for updates if we have auth data
+      if (userToken && userId) {
+        checkForUpdatedData();
       }
-    };
-
-    // Check for updated data when component mounts
-    checkForUpdatedData();
-
-    // Set up focus listener for when returning from other screens
-    const unsubscribe = navigation?.addListener ? navigation.addListener('focus', () => {
-      console.log('Profile screen focused, checking for updates');
-      checkForUpdatedData();
-    }) : undefined;
-
-    return unsubscribe;
-  }, []);
+    }, [userToken, userId])
+  );
 
   const loadProfileData = async () => {
     setLoading(true);

@@ -247,6 +247,45 @@ export default function BattleArenaScreen() {
     return score;
   };
 
+  const updateLocalProfileStats = async (result: 'win' | 'lose') => {
+    if (!userProfile) return;
+
+    try {
+      const updatedProfile = { ...userProfile };
+      
+      if (result === 'win') {
+        updatedProfile.wins = (updatedProfile.wins || 0) + 1;
+        // Increase strength by 1-3 points for winning
+        updatedProfile.strength = (updatedProfile.strength || 0) + Math.floor(Math.random() * 3) + 1;
+      } else {
+        updatedProfile.losses = (updatedProfile.losses || 0) + 1;
+        // Decrease strength by 0-2 points for losing (minimum 1)
+        const strengthLoss = Math.floor(Math.random() * 3);
+        updatedProfile.strength = Math.max(1, (updatedProfile.strength || 1) - strengthLoss);
+      }
+
+      setUserProfile(updatedProfile);
+      
+      // Store updated profile data with a timestamp to ensure it's fresh
+      const updateData = {
+        ...updatedProfile,
+        lastUpdated: Date.now()
+      };
+      
+      await AsyncStorage.setItem('updatedProfileData', JSON.stringify(updateData));
+      
+      console.log(`Battle result: ${result}, Updated stats stored:`, {
+        wins: updatedProfile.wins,
+        losses: updatedProfile.losses,
+        strength: updatedProfile.strength,
+        timestamp: updateData.lastUpdated
+      });
+      
+    } catch (error) {
+      console.error('Error updating local profile stats:', error);
+    }
+  };
+
   const submitBattleResult = async (result: 'win' | 'lose') => {
     if (!userToken || !id) return;
 
@@ -255,6 +294,9 @@ export default function BattleArenaScreen() {
       
       // Store cooldown BEFORE making the API call
       await storeCooldownData();
+      
+      // Update local profile stats IMMEDIATELY after storing cooldown
+      await updateLocalProfileStats(result);
       
       const response = await fetch(`${databaseUrl}/api/interactions/battle`, {
         method: 'POST',
@@ -273,9 +315,6 @@ export default function BattleArenaScreen() {
       }
 
       const battleResponse = await response.json();
-      
-      // Update local user profile stats after battle
-      await updateLocalProfileStats(result);
       
       if (battleResponse.message === 'win' && result === 'win') {
         Alert.alert(
@@ -332,40 +371,6 @@ export default function BattleArenaScreen() {
     } catch (error) {
       console.error('Error submitting battle result:', error);
       Alert.alert('Error', 'Failed to submit battle result. Please try again.');
-    }
-  };
-
-  // Update local profile stats after battle
-  const updateLocalProfileStats = async (result: 'win' | 'lose') => {
-    if (!userProfile) return;
-
-    try {
-      const updatedProfile = { ...userProfile };
-      
-      if (result === 'win') {
-        updatedProfile.wins = (updatedProfile.wins || 0) + 1;
-        // Increase strength by 1-3 points for winning
-        updatedProfile.strength = (updatedProfile.strength || 0) + Math.floor(Math.random() * 3) + 1;
-      } else {
-        updatedProfile.losses = (updatedProfile.losses || 0) + 1;
-        // Decrease strength by 0-2 points for losing (minimum 1)
-        const strengthLoss = Math.floor(Math.random() * 3);
-        updatedProfile.strength = Math.max(1, (updatedProfile.strength || 1) - strengthLoss);
-      }
-
-      setUserProfile(updatedProfile);
-      
-      // Store updated profile data in AsyncStorage for profile screen to use
-      await AsyncStorage.setItem('updatedProfileData', JSON.stringify(updatedProfile));
-      
-      console.log(`Battle result: ${result}, Updated stats:`, {
-        wins: updatedProfile.wins,
-        losses: updatedProfile.losses,
-        strength: updatedProfile.strength
-      });
-      
-    } catch (error) {
-      console.error('Error updating local profile stats:', error);
     }
   };
 
