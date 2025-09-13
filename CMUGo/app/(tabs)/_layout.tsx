@@ -20,7 +20,13 @@ export default function TabLayout() {
         tabBarShowLabel: true,
         tabBarStyle: {
           backgroundColor: Colors[colorScheme ?? 'light'].background,
+          borderTopColor: Colors[colorScheme ?? 'light'].dim, // Set the upper border color
+          paddingTop: 8, // Add top padding to raise the border above the icons
+          elevation: 0, // Remove shadow on Android
+          shadowOpacity: 0, // Remove shadow on iOS
+          borderTopWidth: 0.2, // Keep the subtle border
         },
+
       }}
       >
       <Tabs.Screen
