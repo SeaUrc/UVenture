@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -9,7 +9,9 @@ import {
   Platform,
   ActivityIndicator,
   Image,
-  ScrollView
+  ScrollView,
+  Modal,
+  FlatList
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
@@ -18,204 +20,67 @@ import { Fonts } from '@/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 
-const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
+const databaseUrl = 'http://unrevetted-larue-undeleterious.ngrok-free.app';
+
+type Team = {
+  id: number;
+  name: string;
+  color: string;
+};
 
 export default function LoginScreen() {
+  // Basic form state
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  
+  // Team selection for signup
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState<number | null>(null);
+  const [showTeamModal, setShowTeamModal] = useState(false);
+  
+  // Profile picture for signup
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [showProfileUpload, setShowProfileUpload] = useState(false);
-  const [pendingUserData, setPendingUserData] = useState<{token: string, id: number} | null>(null);
+  const [showImagePickerModal, setShowImagePickerModal] = useState(false);
+  
   const router = useRouter();
 
-  const pickImage = async () => {
-    // Request permission
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (permissionResult.granted === false) {
-      Alert.alert('Permission Required', 'Permission to access camera roll is required!');
-      return;
+  // Load teams when signup is selected
+  useEffect(() => {
+    if (isSignUp) {
+      loadTeams();
     }
+  }, [isSignUp]);
 
-    // Launch image picker
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5, // Reduce quality to keep file size manageable
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setProfileImage(result.assets[0].uri);
-    }
-  };
-
-  const uploadProfilePicture = async (token: string, userId: number, imageUri: string) => {
+  const loadTeams = async () => {
     try {
-      // Convert image to base64
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = async () => {
-          try {
-            const base64Data = reader.result as string;
-            // Remove the data:image/jpeg;base64, prefix
-            const base64Image = base64Data.split(',')[1];
-
-            const uploadResponse = await fetch(`${databaseUrl}/api/profile/upload_image`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                image: base64Image,
-              }),
-            });
-
-            if (uploadResponse.ok) {
-              resolve(true);
-            } else {
-              throw new Error('Failed to upload image');
-            }
-          } catch (error) {
-            reject(error);
-          }
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    } catch (error) {
-      console.error('Error uploading profile picture:', error);
-      throw error;
-    }
-  };
-
-  const checkUserHasProfilePicture = async (token: string, userId: number) => {
-    try {
-      const response = await fetch(`${databaseUrl}/api/profile/get_profile`, {
-        method: 'POST',
+      const response = await fetch(`${databaseUrl}/api/teams/get_teams`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          id: userId,
-        }),
       });
-
+      
       if (response.ok) {
-        const profileData = await response.json();
-        return profileData.image && profileData.image.length > 0;
-      }
-      return false;
-    } catch (error) {
-      console.error('Error checking profile picture:', error);
-      return false;
-    }
-  };
-
-  const handleProfilePictureUpload = async () => {
-    if (!pendingUserData || !profileImage) return;
-
-    setIsLoading(true);
-    try {
-      await uploadProfilePicture(pendingUserData.token, pendingUserData.id, profileImage);
-      
-      // Store authentication data
-      await AsyncStorage.setItem('userToken', pendingUserData.token);
-      await AsyncStorage.setItem('userId', pendingUserData.id.toString());
-      await AsyncStorage.setItem('username', username.trim());
-
-      Alert.alert(
-        'Welcome!',
-        'Profile picture uploaded successfully!',
-        [
-          {
-            text: 'Continue',
-            onPress: () => router.replace('/(tabs)'),
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('Profile picture upload error:', error);
-      Alert.alert('Error', 'Failed to upload profile picture. You can add one later in your profile.');
-      
-      // Still proceed to app even if image upload fails
-      await AsyncStorage.setItem('userToken', pendingUserData.token);
-      await AsyncStorage.setItem('userId', pendingUserData.id.toString());
-      await AsyncStorage.setItem('username', username.trim());
-      router.replace('/(tabs)');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const skipProfilePicture = async () => {
-    if (!pendingUserData) return;
-
-    // Store authentication data without profile picture
-    await AsyncStorage.setItem('userToken', pendingUserData.token);
-    await AsyncStorage.setItem('userId', pendingUserData.id.toString());
-    await AsyncStorage.setItem('username', username.trim());
-
-    Alert.alert(
-      'Welcome!',
-      'You can add a profile picture later in your profile settings.',
-      [
-        {
-          text: 'Continue',
-          onPress: () => router.replace('/(tabs)'),
-        },
-      ]
-    );
-  };
-
-  const createAccount = async () => {
-    if (!username.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please enter both username and password');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${databaseUrl}/api/auth/create_account`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: username.trim(),
-          password: password,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.token && data.id) {
-        // After successful account creation, prompt for profile picture
-        setPendingUserData({ token: data.token, id: data.id });
-        setShowProfileUpload(true);
+        const data = await response.json();
+        console.log('Raw teams response:', data);
+        
+        // The response format is { "data": [array of team objects] }
+        if (data.data && Array.isArray(data.data)) {
+          console.log('Teams array found:', data.data);
+          setTeams(data.data);
+        } else {
+          console.error('Unexpected response format. Expected { data: [...] }, got:', data);
+          setTeams([]);
+        }
       } else {
-        throw new Error('Invalid response format');
+        console.error('Failed to load teams. Status:', response.status);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
       }
-
     } catch (error) {
-      console.error('Create account error:', error);
-      Alert.alert(
-        'Error', 
-        'Failed to create account. Username might already exist or there was a server error.'
-      );
-    } finally {
-      setIsLoading(false);
+      console.error('Error loading teams:', error);
     }
   };
 
@@ -239,124 +104,186 @@ export default function LoginScreen() {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        throw new Error('Sign in failed');
       }
 
       const data = await response.json();
-      
+      console.log('Sign in response:', data);
+
       if (data.token && data.id) {
-        // Check if user has a profile picture
-        const hasProfilePicture = await checkUserHasProfilePicture(data.token, data.id);
-        
-        if (!hasProfilePicture) {
-          // Prompt to upload profile picture
-          setPendingUserData({ token: data.token, id: data.id });
-          setShowProfileUpload(true);
-        } else {
-          // Store authentication data and proceed
-          await AsyncStorage.setItem('userToken', data.token);
-          await AsyncStorage.setItem('userId', data.id.toString());
-          await AsyncStorage.setItem('username', username.trim());
+        // Store auth data and navigate to app
+        await AsyncStorage.setItem('userToken', data.token);
+        await AsyncStorage.setItem('userId', data.id.toString());
+        await AsyncStorage.setItem('username', username.trim());
 
-          Alert.alert(
-            'Welcome Back!',
-            `Successfully signed in as ${username}`,
-            [
-              {
-                text: 'Continue',
-                onPress: () => router.replace('/(tabs)'),
-              },
-            ]
-          );
-        }
+        Alert.alert('Welcome Back!', 'Successfully signed in', [
+          { text: 'Continue', onPress: () => router.replace('/(tabs)') }
+        ]);
       } else {
-        throw new Error('Invalid response format');
+        throw new Error('Invalid response');
       }
-
     } catch (error) {
       console.error('Sign in error:', error);
-      Alert.alert(
-        'Error', 
-        'Failed to sign in. Please check your username and password.'
-      );
+      Alert.alert('Error', 'Failed to sign in. Check your credentials.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSubmit = () => {
-    if (isSignUp) {
-      createAccount();
-    } else {
-      signIn();
+  const createAccount = async () => {
+    if (!username.trim() || !password.trim()) {
+      Alert.alert('Error', 'Please enter both username and password');
+      return;
+    }
+
+    if (!selectedTeam) {
+      Alert.alert('Error', 'Please select a team');
+      return;
+    }
+
+    if (!profileImage) {
+      Alert.alert('Error', 'Please upload a profile picture');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Convert image to base64
+      const response = await fetch(profileImage);
+      const blob = await response.blob();
+      
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      // Create account with all data
+      const createResponse = await fetch(`${databaseUrl}/api/auth/create_account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password,
+          team: selectedTeam,
+          image: base64Data,
+        }),
+      });
+
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text();
+        throw new Error(errorText || 'Account creation failed');
+      }
+
+      const data = await createResponse.json();
+      console.log('Create account response:', data);
+
+      if (data.username != "") {
+        // Store auth data and navigate to app
+        await AsyncStorage.setItem('username', username.trim());
+
+        Alert.alert('Welcome!', 'Account created successfully!', [
+          { text: 'Continue', onPress: () => router.replace('/(tabs)') }
+        ]);
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error) {
+      console.error('Create account error:', error);
+      if (error.message.includes('already exists')) {
+        Alert.alert('Error', 'Username already exists. Please choose another.');
+      } else {
+        Alert.alert('Error', 'Failed to create account. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  if (showProfileUpload) {
-    return (
-      <ThemedView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.profileUploadContainer}>
-          <ThemedText style={styles.title}>
-            {isSignUp ? 'Welcome to CMU Go!' : 'Welcome Back!'}
-          </ThemedText>
-          
-          <ThemedText style={styles.subtitle}>
-            Add a profile picture to personalize your account
-          </ThemedText>
+  const pickImageFromLibrary = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+      return;
+    }
 
-          <View style={styles.imageContainer}>
-            {profileImage ? (
-              <Image source={{ uri: profileImage }} style={styles.profilePreview} />
-            ) : (
-              <View style={styles.imagePlaceholder}>
-                <ThemedText style={styles.placeholderText}>📷</ThemedText>
-                <ThemedText style={styles.placeholderSubtext}>Tap to add photo</ThemedText>
-              </View>
-            )}
-          </View>
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
 
-          <TouchableOpacity
-            style={styles.imagePickerButton}
-            onPress={pickImage}
-            disabled={isLoading}
-          >
-            <ThemedText style={styles.imagePickerButtonText}>
-              {profileImage ? 'Change Photo' : 'Choose Photo'}
-            </ThemedText>
-          </TouchableOpacity>
+    if (!result.canceled && result.assets[0]) {
+      setProfileImage(result.assets[0].uri);
+      setShowImagePickerModal(false);
+    }
+  };
 
-          <View style={styles.profileButtonsContainer}>
-            {profileImage && (
-              <TouchableOpacity
-                style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
-                onPress={handleProfilePictureUpload}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <ThemedText style={styles.submitButtonText}>
-                    Upload & Continue
-                  </ThemedText>
-                )}
-              </TouchableOpacity>
-            )}
+  const takePhoto = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Required', 'Permission to access camera is required!');
+      return;
+    }
 
-            <TouchableOpacity
-              style={styles.skipButton}
-              onPress={skipProfilePicture}
-              disabled={isLoading}
-            >
-              <ThemedText style={styles.skipButtonText}>
-                Skip for Now
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </ThemedView>
-    );
-  }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setProfileImage(result.assets[0].uri);
+      setShowImagePickerModal(false);
+    }
+  };
+
+  const showImageOptions = () => {
+    setShowImagePickerModal(true);
+  };
+
+  const selectTeam = (team: Team) => {
+    setSelectedTeam(team.id);
+    setShowTeamModal(false);
+  };
+
+  const getSelectedTeamName = () => {
+    const team = teams.find(t => t.id === selectedTeam);
+    return team ? team.name : 'Choose a team...';
+  };
+
+  const getSelectedTeamColor = () => {
+    const team = teams.find(t => t.id === selectedTeam);
+    return team ? team.color : '#ccc';
+  };
+
+  const resetForm = () => {
+    setUsername('');
+    setPassword('');
+    setSelectedTeam(null);
+    setProfileImage(null);
+    setShowTeamModal(false);
+    setShowImagePickerModal(false);
+  };
+
+  const renderTeamItem = ({ item }: { item: Team }) => (
+    <TouchableOpacity
+      style={styles.teamModalItem}
+      onPress={() => selectTeam(item)}
+    >
+      <View style={[styles.teamModalDot, { backgroundColor: item.color }]} />
+      <ThemedText style={styles.teamModalText}>{item.name}</ThemedText>
+    </TouchableOpacity>
+  );
 
   return (
     <ThemedView style={styles.container}>
@@ -364,7 +291,7 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.contentContainer}>
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
           <ThemedText style={styles.title}>
             {isSignUp ? 'Create Account' : 'Welcome Back'}
           </ThemedText>
@@ -374,6 +301,7 @@ export default function LoginScreen() {
           </ThemedText>
 
           <View style={styles.formContainer}>
+            {/* Username and Password - Always visible */}
             <View style={styles.inputContainer}>
               <ThemedText style={styles.inputLabel}>Username</ThemedText>
               <TextInput
@@ -403,15 +331,82 @@ export default function LoginScreen() {
               />
             </View>
 
+            {/* Team Selection - Only for signup */}
+            {isSignUp && (
+              <View style={styles.inputContainer}>
+                <ThemedText style={styles.inputLabel}>Select Team</ThemedText>
+                <TouchableOpacity
+                  style={styles.teamSelector}
+                  onPress={() => setShowTeamModal(true)}
+                  disabled={isLoading}
+                >
+                  <View style={styles.teamSelectorContent}>
+                    {selectedTeam && (
+                      <View style={[styles.teamSelectorDot, { backgroundColor: getSelectedTeamColor() }]} />
+                    )}
+                    <ThemedText style={[
+                      styles.teamSelectorText,
+                      !selectedTeam && styles.placeholderText
+                    ]}>
+                      {getSelectedTeamName()}
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={styles.dropdownArrow}>▼</ThemedText>
+                </TouchableOpacity>
+
+                {selectedTeam && (
+                  <View style={styles.teamPreview}>
+                    {(() => {
+                      const team = teams.find(t => t.id === selectedTeam);
+                      return team ? (
+                        <View style={styles.teamCard}>
+                          <View style={[styles.teamDot, { backgroundColor: team.color }]} />
+                          <ThemedText style={styles.teamName}>{team.name}</ThemedText>
+                        </View>
+                      ) : null;
+                    })()}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Profile Picture - Only for signup */}
+            {isSignUp && (
+              <View style={styles.inputContainer}>
+                <ThemedText style={styles.inputLabel}>Profile Picture</ThemedText>
+                
+                <View style={styles.imageContainer}>
+                  {profileImage ? (
+                    <Image source={{ uri: profileImage }} style={styles.profileImage} />
+                  ) : (
+                    <View style={styles.imagePlaceholder}>
+                      <ThemedText style={styles.placeholderIcon}>📷</ThemedText>
+                      <ThemedText style={styles.placeholderImageText}>Tap to add photo</ThemedText>
+                    </View>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.imageButton}
+                  onPress={showImageOptions}
+                  disabled={isLoading}
+                >
+                  <ThemedText style={styles.imageButtonText}>
+                    {profileImage ? 'Change Photo' : 'Add Photo'}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            )}
+
             <TouchableOpacity
-              style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
+              style={[styles.primaryButton, isLoading && styles.disabledButton]}
+              onPress={isSignUp ? createAccount : signIn}
               disabled={isLoading}
             >
               {isLoading ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
-                <ThemedText style={styles.submitButtonText}>
+                <ThemedText style={styles.primaryButtonText}>
                   {isSignUp ? 'Create Account' : 'Sign In'}
                 </ThemedText>
               )}
@@ -424,11 +419,7 @@ export default function LoginScreen() {
               <TouchableOpacity
                 onPress={() => {
                   setIsSignUp(!isSignUp);
-                  setUsername('');
-                  setPassword('');
-                  setProfileImage(null);
-                  setShowProfileUpload(false);
-                  setPendingUserData(null);
+                  resetForm();
                 }}
                 disabled={isLoading}
               >
@@ -440,6 +431,76 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Team Selection Modal */}
+      <Modal
+        visible={showTeamModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTeamModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>Select Team</ThemedText>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowTeamModal(false)}
+              >
+                <ThemedText style={styles.modalCloseText}>✕</ThemedText>
+              </TouchableOpacity>
+            </View>
+            
+            <FlatList
+              data={teams}
+              renderItem={renderTeamItem}
+              keyExtractor={(item) => item.id.toString()}
+              style={styles.teamList}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Image Picker Modal */}
+      <Modal
+        visible={showImagePickerModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowImagePickerModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.imagePickerModalContainer}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>Choose Photo</ThemedText>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowImagePickerModal(false)}
+              >
+                <ThemedText style={styles.modalCloseText}>✕</ThemedText>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.imageOptionsContainer}>
+              <TouchableOpacity
+                style={styles.imageOption}
+                onPress={takePhoto}
+              >
+                <ThemedText style={styles.imageOptionIcon}>📸</ThemedText>
+                <ThemedText style={styles.imageOptionText}>Take Photo</ThemedText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.imageOption}
+                onPress={pickImageFromLibrary}
+              >
+                <ThemedText style={styles.imageOptionIcon}>🖼️</ThemedText>
+                <ThemedText style={styles.imageOptionText}>Choose from Library</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -451,17 +512,11 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
-  contentContainer: {
+  scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 30,
-    paddingTop: 60,
-  },
-  profileUploadContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 30,
-    paddingTop: 60,
+    paddingVertical: 60,
   },
   title: {
     fontFamily: Fonts.rounded,
@@ -496,19 +551,120 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#f9f9f9',
   },
-  submitButton: {
+  teamSelector: {
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    backgroundColor: '#f9f9f9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+  },
+  teamSelectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  teamSelectorDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  teamSelectorText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  placeholderText: {
+    color: '#999',
+  },
+  dropdownArrow: {
+    fontSize: 12,
+    color: '#666',
+  },
+  teamPreview: {
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  teamCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  teamDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  teamName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  imageContainer: {
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+  },
+  imagePlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+  },
+  placeholderIcon: {
+    fontSize: 30,
+    marginBottom: 5,
+  },
+  placeholderImageText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  imageButton: {
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    alignSelf: 'center',
+  },
+  imageButtonText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  primaryButton: {
     backgroundColor: '#007AFF',
     height: 50,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 20,
     marginBottom: 20,
   },
-  submitButtonDisabled: {
+  disabledButton: {
     opacity: 0.6,
   },
-  submitButtonText: {
+  primaryButtonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
@@ -528,64 +684,91 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: '600',
   },
-  imageContainer: {
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 30,
   },
-  profilePreview: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    borderWidth: 3,
-    borderColor: '#007AFF',
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 20,
+    width: '80%',
+    maxHeight: '60%',
   },
-  imagePlaceholder: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  modalCloseButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#ddd',
-    borderStyle: 'dashed',
   },
-  placeholderText: {
-    fontSize: 40,
-    marginBottom: 5,
-  },
-  placeholderSubtext: {
-    fontSize: 14,
+  modalCloseText: {
+    fontSize: 16,
     color: '#666',
   },
-  imagePickerButton: {
-    backgroundColor: '#f0f0f0',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 25,
-    marginBottom: 30,
-    alignSelf: 'center',
+  teamList: {
+    maxHeight: 300,
   },
-  imagePickerButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  profileButtonsContainer: {
-    width: '100%',
-  },
-  skipButton: {
-    backgroundColor: 'transparent',
+  teamModalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 15,
-    paddingHorizontal: 30,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  teamModalDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 15,
+  },
+  teamModalText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  // Image picker modal styles
+  imagePickerModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 20,
+    width: '80%',
+  },
+  imageOptionsContainer: {
+    gap: 15,
+  },
+  imageOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    backgroundColor: '#f9f9f9',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#ccc',
-    alignItems: 'center',
+    borderColor: '#e0e0e0',
   },
-  skipButtonText: {
-    color: '#666',
+  imageOptionIcon: {
+    fontSize: 24,
+    marginRight: 15,
+  },
+  imageOptionText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
+    color: '#000',
   },
 });

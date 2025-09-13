@@ -31,9 +31,6 @@ type LocationData = {
 type TeamStats = {
   team_name: string;
   team_color: string;
-  total_members: number;
-  total_locations: number;
-  team_rank: number;
 };
 
 export default function ProfileScreen() {
@@ -119,13 +116,13 @@ export default function ProfileScreen() {
   const loadProfileData = async () => {
     setLoading(true);
     try {
-      // Fetch user profile which now includes strength, wins, losses, and defending locations
+      // First fetch user profile to get team ID
       await fetchUserProfile();
       
-      // Fetch additional data in parallel
+      // Then fetch additional data that depends on profile data
       await Promise.all([
         fetchOwnedLocations(),
-        fetchTeamStats(),
+        // fetchTeamStats will be called in useEffect when profileData updates
       ]);
     } catch (error) {
       console.error('Error loading profile data:', error);
@@ -171,6 +168,12 @@ export default function ProfileScreen() {
             strongest_owner_id: userId || 0,
           }));
           setDefendingLocations(defendingLocs);
+        }
+        
+        // Fetch team stats immediately after setting profile data if team ID exists
+        if (profileData.team) {
+          console.log('Calling fetchTeamStats with team ID:', profileData.team);
+          await fetchTeamStats(profileData.team);
         }
       }
     } catch (error) {
@@ -337,41 +340,55 @@ export default function ProfileScreen() {
   };
 
   // Fetch team statistics
-  const fetchTeamStats = async () => {
-    if (!userToken || !profileData?.team) return;
-
+  const fetchTeamStats = async (teamId?: number) => {
     try {
-      console.log('Fetching team stats for team ID:', profileData.team); // Debug log
+      // Get the team ID from parameter or profile data
+      const teamToFetch = teamId || profileData?.team;
       
-      const response = await fetch(`${databaseUrl}/api/profile/get_team_stats`, {
+      if (!teamToFetch) {
+        console.log('No team ID available for fetching stats');
+        return;
+      }
+
+      console.log('Fetching team info for team ID:', teamToFetch); // Debug log
+      
+      const response = await fetch(`${databaseUrl}/api/teams/get_team`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userToken}`,
         },
         body: JSON.stringify({
-          team_id: profileData.team, // Changed from team_name to team_id
+          id: teamToFetch,
         }),
       });
 
+      console.log('Team info response status:', response.status); // Debug log
+
       if (response.ok) {
         const teamData = await response.json();
-        console.log('Team stats fetched:', teamData); // Debug log
-        setTeamStats(teamData);
+        console.log('Team info fetched successfully:', teamData); // Debug log
+        
+        // Transform the response to match our TeamStats type
+        setTeamStats({
+          team_name: teamData.name || teamData.team_name || 'Unknown Team',
+          team_color: teamData.color || teamData.team_color || '#007AFF',
+        });
       } else {
-        console.log('Team stats response not ok:', response.status);
+        const errorText = await response.text();
+        console.log('Team info response not ok:', response.status, errorText);
       }
     } catch (error) {
-      console.error('Error fetching team stats:', error);
+      console.error('Error fetching team info:', error);
     }
   };
 
   // Update the useEffect to work with team ID
   useEffect(() => {
-    if (profileData?.team && userToken) {
-      fetchTeamStats();
+    if (profileData?.team && !teamStats) {
+      console.log('useEffect: Fetching team info for team ID:', profileData.team);
+      fetchTeamStats(profileData.team);
     }
-  }, [profileData?.team, userToken]);
+  }, [profileData?.team]);
 
   const logout = async () => {
     Alert.alert(
@@ -477,24 +494,10 @@ export default function ProfileScreen() {
           <View style={styles.teamContainer}>
             <Text style={styles.sectionTitle}>Team Affiliation</Text>
             {teamStats ? (
-              <View style={[styles.teamCard, { borderColor: teamStats.team_color || '#ccc' }]}>
+              <View style={[styles.teamCard, { borderColor: teamStats.team_color || '#007AFF' }]}>
                 <View style={styles.teamHeader}>
-                  <View style={[styles.teamColorDot, { backgroundColor: teamStats.team_color || '#ccc' }]} />
-                  <Text style={styles.teamName}>{teamStats.team_name}</Text>
-                </View>
-                <View style={styles.teamStatsRow}>
-                  <View style={styles.teamStat}>
-                    <Text style={styles.teamStatValue}>{teamStats.total_members || 0}</Text>
-                    <Text style={styles.teamStatLabel}>Members</Text>
-                  </View>
-                  <View style={styles.teamStat}>
-                    <Text style={styles.teamStatValue}>{teamStats.total_locations || 0}</Text>
-                    <Text style={styles.teamStatLabel}>Locations</Text>
-                  </View>
-                  <View style={styles.teamStat}>
-                    <Text style={styles.teamStatValue}>#{teamStats.team_rank || 'N/A'}</Text>
-                    <Text style={styles.teamStatLabel}>Rank</Text>
-                  </View>
+                  <View style={[styles.teamColorDot, { backgroundColor: teamStats.team_color || '#007AFF' }]} />
+                  <Text style={styles.teamName}>{teamStats.team_name || 'Unknown Team'}</Text>
                 </View>
               </View>
             ) : (
@@ -503,20 +506,6 @@ export default function ProfileScreen() {
                 <View style={styles.teamHeader}>
                   <View style={[styles.teamColorDot, { backgroundColor: '#ccc' }]} />
                   <Text style={styles.teamName}>Team #{profileData.team}</Text>
-                </View>
-                <View style={styles.teamStatsRow}>
-                  <View style={styles.teamStat}>
-                    <Text style={styles.teamStatValue}>-</Text>
-                    <Text style={styles.teamStatLabel}>Members</Text>
-                  </View>
-                  <View style={styles.teamStat}>
-                    <Text style={styles.teamStatValue}>-</Text>
-                    <Text style={styles.teamStatLabel}>Locations</Text>
-                  </View>
-                  <View style={styles.teamStat}>
-                    <Text style={styles.teamStatValue}>-</Text>
-                    <Text style={styles.teamStatLabel}>Rank</Text>
-                  </View>
                 </View>
               </View>
             )}
@@ -741,7 +730,7 @@ const styles = StyleSheet.create({
   teamHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    justifyContent: 'center', // Center the team name
   },
   teamColorDot: {
     width: 20,
@@ -753,23 +742,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
-  },
-  teamStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  teamStat: {
-    alignItems: 'center',
-  },
-  teamStatValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFD700',
-  },
-  teamStatLabel: {
-    fontSize: 12,
-    color: '#ccc',
-    marginTop: 2,
   },
   statsContainer: {
     marginBottom: 30,
