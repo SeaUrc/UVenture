@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/theme';
 
-const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
+const databaseUrl = 'http://unrevetted-larue-undeleterious.ngrok-free.app';
 
 type LocationData = {
   id: number;
@@ -446,8 +446,6 @@ export default function BattleScreen() {
               />
               <Text style={styles.fighterName}>{userInfo.name}</Text>
               <Text style={styles.fighterTeam}>{userInfo.team}</Text>
-              {/* {isUserOwner && <Text style={styles.ownerBadge}>OWNER</Text>} */}
-              {/* {isUserStrongestOwner && <Text style={styles.championBadge}>CHAMPION</Text>} */}
             </View>
 
             <Text style={styles.vsText}>
@@ -503,6 +501,7 @@ export default function BattleScreen() {
 
       {/* Battle Controls - Fixed at bottom */}
       <View style={styles.controls}>
+        {/* Battle Button */}
         <TouchableOpacity 
           style={[
             styles.battleButton, 
@@ -604,26 +603,6 @@ const styles = StyleSheet.create({
     color: '#ccc',
     textAlign: 'center',
     marginTop: 5,
-  },
-  ownerBadge: {
-    fontSize: 10,
-    color: '#4CAF50',
-    fontWeight: 'bold',
-    marginTop: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: 'rgba(76, 175, 80, 0.2)',
-    borderRadius: 10,
-  },
-  championBadge: {
-    fontSize: 10,
-    color: '#FFD700',
-    fontWeight: 'bold',
-    marginTop: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
-    borderRadius: 10,
   },
   vsText: {
     fontSize: 24,
