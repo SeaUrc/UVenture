@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Image } from 'expo-image';
-import { StyleSheet, Button, View } from 'react-native';
+import { StyleSheet, Button, View, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useProfile } from '../context/ProfileContext';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
@@ -11,6 +12,53 @@ import { Fonts } from '@/constants/theme';
 
 export default function ProfileScreen() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const { profileImage, setProfileImage } = useProfile();
+
+  // New state for team/affiliation info
+  const [profileData, setProfileData] = useState<{ team?: string; affiliation?: string } | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState<boolean>(true);
+
+  // Fetch profile data from API
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const response = await fetch('YOUR_API_PROFILE_ENDPOINT');
+        if (!response.ok) throw new Error('Failed to fetch profile data');
+        const data = await response.json();
+        setProfileData(data);
+      } catch (error) {
+        setProfileData(null);
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+    fetchProfileData();
+  }, []);
+
+  const uploadProfileImage = async (uri: string) => {
+    const formData = new FormData();
+    formData.append('profileImage', {
+      uri,
+      name: 'profile.jpg',
+      type: 'image/jpeg',
+    } as any);
+
+    try {
+      const response = await fetch('YOUR_API_ENDPOINT', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to upload image');
+      }
+      // Optionally handle response data here
+    } catch (error) {
+      alert('Image upload failed: ' + error.message);
+    }
+  };
 
   const pickImageFromCamera = async () => {
     // Request camera permissions
@@ -27,7 +75,8 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setSelectedImage(result.assets[0].uri);
+      setProfileImage(result.assets[0].uri);
+      await uploadProfileImage(result.assets[0].uri);
     }
   };
 
@@ -64,12 +113,26 @@ export default function ProfileScreen() {
         <ThemedText type="subtitle">Bio</ThemedText>
         <ThemedText>A short bio about yourself goes here.</ThemedText>
       </ThemedView>
+      {/* New section for team/affiliation */}
+      <ThemedView style={styles.section}>
+        <ThemedText type="subtitle">Team / Affiliation</ThemedText>
+        {loadingProfile ? (
+          <ActivityIndicator size="small" color="#6A5ACD" />
+        ) : profileData ? (
+          <>
+            <ThemedText>Team: {profileData.team ?? 'N/A'}</ThemedText>
+            <ThemedText>Affiliation: {profileData.affiliation ?? 'N/A'}</ThemedText>
+          </>
+        ) : (
+          <ThemedText>Unable to load team/affiliation info.</ThemedText>
+        )}
+      </ThemedView>
       <ThemedView style={styles.section}>
         <ThemedText type="subtitle">Profile Image</ThemedText>
         <View style={{ alignItems: 'center' }}>
-          {selectedImage && (
+          {profileImage && (
             <Image
-              source={{ uri: selectedImage }}
+              source={{ uri: profileImage }}
               style={styles.profileImage}
             />
           )}
@@ -100,5 +163,5 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     marginBottom: 8,
-      },
+  },
 });

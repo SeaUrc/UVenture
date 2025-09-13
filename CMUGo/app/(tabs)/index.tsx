@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
+import { useProfile } from '../context/ProfileContext';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -8,6 +9,8 @@ import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
 
 export default function HomeScreen() {
+  const { profileImage } = useProfile();
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -20,6 +23,21 @@ export default function HomeScreen() {
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Welcome!</ThemedText>
         <HelloWave />
+      </ThemedView>
+      <ThemedView style={styles.profileContainer}>
+        <View style={{ alignItems: 'center', marginBottom: 16 }}>
+          <Image
+            source={
+              profileImage
+                ? { uri: profileImage }
+                : require('@/assets/images/icon.png')
+            }
+            style={styles.profileImage}
+          />
+          <ThemedText type="subtitle">
+            {profileImage ? 'Your Profile Picture' : 'Default Profile Picture'}
+          </ThemedText>
+        </View>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>
@@ -88,6 +106,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  profileContainer: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 8,
   },
   stepContainer: {
     gap: 8,
