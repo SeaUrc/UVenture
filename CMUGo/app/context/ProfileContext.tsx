@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import { Text } from 'react-native';
 
 type ProfileContextType = {
   profileImage: string | null;
@@ -7,13 +8,13 @@ type ProfileContextType = {
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
-export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
   return (
-    <ProfileContext.Provider value={{ profileImage, setProfileImage }}>
-      {children}
-    </ProfileContext.Provider>
+      <ProfileContext.Provider value={{ profileImage, setProfileImage }}>
+        {children}
+      </ProfileContext.Provider>
   );
 };
 
@@ -26,3 +27,5 @@ export const useProfile = () => {
   }
   return context;
 };
+
+export default ProfileProvider;
