@@ -900,7 +900,7 @@ const addNeonIntensity = (color: string) => {
       if (battleResponse.message === 'win' && result === 'win') {
         await becomeOwner(locationData?.name || 'the location');
           setTimeout(() => {
-            router.replace('/(tabs)');
+            router.back();
           }, 1500);
       } else if (result === 'win') {
         Alert.alert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [

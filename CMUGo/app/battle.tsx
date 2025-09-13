@@ -802,7 +802,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
-<<<<<<< HEAD
   defenderCountContainer: {
     alignItems: 'center',
     marginTop: 16,
@@ -841,8 +840,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
     fontWeight: '600',
-=======
-  championDisplay: {
+  }, championDisplay: {
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
@@ -853,6 +851,5 @@ const styles = StyleSheet.create({
     color: '#FFD700',
     textAlign: 'center',
     marginTop: 15,
->>>>>>> 5a1ae85b01e8d88c0f4432d5dd91fb554ead6c7b
   },
 });
