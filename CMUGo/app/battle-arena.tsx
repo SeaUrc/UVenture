@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useProfile } from './context/ProfileContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
@@ -29,10 +28,10 @@ type ProfileData = {
 // Mock enemy avatars based on team colors
 const getEnemyAvatar = (teamColor: string) => {
   const avatarMap = {
-    '#FF0000': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png', // Red team
-    '#0000FF': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png',  // Blue team
-    '#00FF00': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png',  // Green team
-    '#FFFF00': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png', // Yellow team
+    '#FF0000': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png',
+    '#0000FF': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png',
+    '#00FF00': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png',
+    '#FFFF00': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png',
   };
   return avatarMap[teamColor] || 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png';
 };
@@ -41,26 +40,23 @@ const BATTLE_COOLDOWN_MINUTES = 5;
 
 export default function BattleArenaScreen() {
   const { id, title, ownerTeam, ownerColor } = useLocalSearchParams();
-  const { profileImage } = useProfile();
   const router = useRouter();
-  
+
   // Battle state
   const [playerHealth, setPlayerHealth] = useState(100);
   const [enemyHealth, setEnemyHealth] = useState(100);
+  const [battleStarted, setBattleStarted] = useState(false);
+  const [battleResult, setBattleResult] = useState<string | null>(null);
+  const [battleTime, setBattleTime] = useState(0);
+  
+  // Battle data
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [strongestOwnerProfile, setStrongestOwnerProfile] = useState<ProfileData | null>(null);
-  const [battleResult, setBattleResult] = useState<string | null>(null);
-  
-  // Battle timer state
-  const [battleTime, setBattleTime] = useState(0);
+  const [userProfile, setUserProfile] = useState<ProfileData | null>(null);
   
   // Auth state
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
-  
-  // Cooldown state
-  const [cooldownStarted, setCooldownStarted] = useState(false);
-  const [cooldownTimeLeft, setCooldownTimeLeft] = useState(0);
 
   useEffect(() => {
     const getAuthData = async () => {
@@ -78,11 +74,35 @@ export default function BattleArenaScreen() {
   }, []);
 
   useEffect(() => {
-    if (id && userToken) {
+    if (id && userToken && userId) {
       fetchLocationData();
-      checkExistingCooldown();
+      fetchUserProfile();
     }
-  }, [id, userToken]);
+  }, [id, userToken, userId]);
+
+  // Fetch user's own profile
+  const fetchUserProfile = async () => {
+    if (!userId) return;
+    
+    try {
+      const response = await fetch(`${databaseUrl}/api/profile/get_profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: userId,
+        }),
+      });
+
+      if (response.ok) {
+        const profileData = await response.json();
+        setUserProfile(profileData);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   // Fetch location data from database
   const fetchLocationData = async () => {
@@ -95,9 +115,12 @@ export default function BattleArenaScreen() {
       
       if (location) {
         setLocationData(location);
-        // Fetch strongest owner profile
-        if (location.strongest_owner_id) {
-          fetchStrongestOwnerProfile(location.strongest_owner_id);
+        
+        // Fetch strongest owner profile if it exists and it's not the current user
+        if (location.strongest_owner_id && location.strongest_owner_id > 0 && location.strongest_owner_id !== userId) {
+          await fetchStrongestOwnerProfile(location.strongest_owner_id);
+        } else {
+          setStrongestOwnerProfile(null);
         }
       }
     } catch (error) {
@@ -109,13 +132,25 @@ export default function BattleArenaScreen() {
   // Fetch strongest owner profile
   const fetchStrongestOwnerProfile = async (ownerId: number) => {
     try {
-      const response = await fetch(`${databaseUrl}/api/profile/get_profile?id=${ownerId}`);
-      if (!response.ok) throw new Error('Failed to fetch profile');
-      
-      const profileData = await response.json();
-      setStrongestOwnerProfile(profileData);
+      const response = await fetch(`${databaseUrl}/api/profile/get_profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: ownerId,
+        }),
+      });
+
+      if (response.ok) {
+        const profileData = await response.json();
+        if (profileData && profileData.username) {
+          setStrongestOwnerProfile(profileData);
+        }
+      }
     } catch (error) {
       console.error('Error fetching strongest owner profile:', error);
+      setStrongestOwnerProfile(null);
     }
   };
 
@@ -123,7 +158,7 @@ export default function BattleArenaScreen() {
   useEffect(() => {
     let battleTimer: NodeJS.Timeout;
     
-    if (!battleResult) {
+    if (battleStarted && !battleResult) {
       battleTimer = setInterval(() => {
         setBattleTime(prev => prev + 1);
       }, 1000);
@@ -134,39 +169,16 @@ export default function BattleArenaScreen() {
         clearInterval(battleTimer);
       }
     };
-  }, [battleResult]);
-
-  // Cooldown timer effect
-  useEffect(() => {
-    let cooldownTimer: NodeJS.Timeout;
-    
-    if (cooldownStarted && cooldownTimeLeft > 0) {
-      cooldownTimer = setInterval(() => {
-        setCooldownTimeLeft(prev => {
-          if (prev <= 1) {
-            setCooldownStarted(false);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (cooldownTimer) {
-        clearInterval(cooldownTimer);
-      }
-    };
-  }, [cooldownStarted, cooldownTimeLeft]);
+  }, [battleStarted, battleResult]);
 
   // Enemy attack interval effect
   useEffect(() => {
     let enemyAttackInterval: NodeJS.Timeout;
     
-    if (!battleResult && enemyHealth > 0 && playerHealth > 0) {
+    if (battleStarted && !battleResult && enemyHealth > 0 && playerHealth > 0) {
       enemyAttackInterval = setInterval(() => {
         enemyAttack();
-      }, 800 + Math.random() * 1400);
+      }, 1200 + Math.random() * 1800); // Enemy attacks every 1.2-3 seconds
     }
 
     return () => {
@@ -174,54 +186,40 @@ export default function BattleArenaScreen() {
         clearInterval(enemyAttackInterval);
       }
     };
-  }, [battleResult, enemyHealth, playerHealth]);
+  }, [battleStarted, battleResult, enemyHealth, playerHealth]);
 
-  const formatBattleTime = (seconds: number) => {
+  const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const formatCooldownTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const startBattle = () => {
+    setBattleStarted(true);
+    setPlayerHealth(100);
+    setEnemyHealth(100);
+    setBattleTime(0);
+    setBattleResult(null);
   };
 
-  const startCooldown = () => {
-    const cooldownSeconds = BATTLE_COOLDOWN_MINUTES * 60;
-    setCooldownStarted(true);
-    setCooldownTimeLeft(cooldownSeconds);
-    storeCooldownData();
-  };
+  const playerAttack = () => {
+    if (battleResult || !battleStarted) return;
 
-  const checkExistingCooldown = async () => {
-    try {
-      const cooldownKey = `arena_cooldown_${id}`;
-      const cooldownData = await AsyncStorage.getItem(cooldownKey);
-      
-      if (cooldownData) {
-        const { cooldownEndTime } = JSON.parse(cooldownData);
-        const currentTime = Date.now();
-        
-        if (currentTime < cooldownEndTime) {
-          const timeLeft = Math.ceil((cooldownEndTime - currentTime) / 1000);
-          setCooldownStarted(true);
-          setCooldownTimeLeft(timeLeft);
-          setBattleResult('cooldown');
-        } else {
-          await AsyncStorage.removeItem(cooldownKey);
-        }
-      }
-    } catch (error) {
-      console.error('Error checking existing cooldown:', error);
+    const damage = Math.floor(Math.random() * 20) + 10; // 10-29 damage
+    const newEnemyHealth = Math.max(0, enemyHealth - damage);
+    setEnemyHealth(newEnemyHealth);
+
+    if (newEnemyHealth <= 0) {
+      setBattleResult('victory');
+      submitBattleResult('win');
+      startCooldown();
     }
   };
 
   const enemyAttack = () => {
     if (battleResult || playerHealth <= 0 || enemyHealth <= 0) return;
 
-    const enemyDamage = Math.floor(Math.random() * 12) + 3;
+    const enemyDamage = Math.floor(Math.random() * 15) + 8; // 8-22 damage
     setPlayerHealth(prevHealth => {
       const newPlayerHealth = Math.max(0, prevHealth - enemyDamage);
       
@@ -229,17 +227,32 @@ export default function BattleArenaScreen() {
         setBattleResult('defeat');
         submitBattleResult('lose');
         startCooldown();
-        Alert.alert('Defeat!', `You were defeated! You must wait ${BATTLE_COOLDOWN_MINUTES} minutes before battling here again.`);
       }
       
       return newPlayerHealth;
     });
   };
 
+  const calculateBattleScore = (result: 'win' | 'lose') => {
+    let score = 50; // Base score
+    
+    if (result === 'win') {
+      score += 50; // Win bonus
+      score += Math.max(0, 30 - battleTime); // Time bonus
+      score += playerHealth; // Health bonus
+    } else {
+      score = Math.max(10, score - 20); // Minimum participation score
+    }
+    
+    return score;
+  };
+
   const submitBattleResult = async (result: 'win' | 'lose') => {
     if (!userToken || !id) return;
 
     try {
+      const battleScore = calculateBattleScore(result);
+      
       const response = await fetch(`${databaseUrl}/api/interactions/battle`, {
         method: 'POST',
         headers: {
@@ -248,7 +261,7 @@ export default function BattleArenaScreen() {
         },
         body: JSON.stringify({
           id: parseInt(id as string),
-          score: calculateBattleScore(result),
+          score: battleScore,
         }),
       });
 
@@ -259,10 +272,9 @@ export default function BattleArenaScreen() {
       const battleResponse = await response.json();
       
       if (battleResponse.message === 'win' && result === 'win') {
-        // Offer to become owner
         Alert.alert(
           'Victory!',
-          'You have successfully captured this location! Do you want to become an owner?',
+          `You captured ${locationData?.name || 'the location'}! Do you want to become an owner?`,
           [
             {
               text: 'No Thanks',
@@ -274,9 +286,17 @@ export default function BattleArenaScreen() {
             },
           ]
         );
+      } else if (result === 'win') {
+        Alert.alert('Close Victory!', 'You won the battle but the location remains contested. Great effort!');
+      } else {
+        Alert.alert(
+          'Defeat',
+          `You were defeated at ${locationData?.name || 'the location'}. Train harder and try again in ${BATTLE_COOLDOWN_MINUTES} minutes!`
+        );
       }
     } catch (error) {
       console.error('Error submitting battle result:', error);
+      Alert.alert('Error', 'Failed to submit battle result. Please try again.');
     }
   };
 
@@ -306,47 +326,23 @@ export default function BattleArenaScreen() {
     }
   };
 
-  const calculateBattleScore = (result: 'win' | 'lose') => {
-    // Base score calculation
-    let score = 50; // Base score
-    
-    if (result === 'win') {
-      score += 50; // Win bonus
-      score += Math.max(0, 30 - battleTime); // Time bonus (faster = more points)
-      score += playerHealth; // Health bonus
-    } else {
-      score = Math.max(10, score - 20); // Minimum score for participation
-    }
-    
-    return score;
+  const startCooldown = () => {
+    const cooldownSeconds = BATTLE_COOLDOWN_MINUTES * 60;
+    storeCooldownData();
   };
 
   const storeCooldownData = async () => {
     try {
       const cooldownSeconds = BATTLE_COOLDOWN_MINUTES * 60;
       const cooldownEndTime = Date.now() + (cooldownSeconds * 1000);
-      const cooldownKey = `arena_cooldown_${id}`;
+      const cooldownKey = `battle_cooldown_${id}`;
       
       await AsyncStorage.setItem(cooldownKey, JSON.stringify({
         cooldownEndTime,
-        arenaId: id
+        locationId: id
       }));
     } catch (error) {
       console.error('Error storing cooldown:', error);
-    }
-  };
-
-  const playerAttack = () => {
-    if (battleResult) return;
-
-    const damage = Math.floor(Math.random() * 20) + 10;
-    const newEnemyHealth = Math.max(0, enemyHealth - damage);
-    setEnemyHealth(newEnemyHealth);
-
-    if (newEnemyHealth <= 0) {
-      setBattleResult('victory');
-      submitBattleResult('win');
-      startCooldown();
     }
   };
 
@@ -354,7 +350,25 @@ export default function BattleArenaScreen() {
     router.back();
   };
 
-  // Get enemy display info
+  // Get display info for both fighters
+  const getUserDisplayInfo = () => {
+    if (userProfile) {
+      return {
+        name: userProfile.username,
+        image: userProfile.image 
+          ? `data:image/png;base64,${userProfile.image}` 
+          : null,
+        team: userProfile.team,
+      };
+    }
+    
+    return {
+      name: 'You',
+      image: null,
+      team: 'Your Team',
+    };
+  };
+
   const getEnemyDisplayInfo = () => {
     if (strongestOwnerProfile) {
       return {
@@ -373,104 +387,99 @@ export default function BattleArenaScreen() {
     };
   };
 
+  const userInfo = getUserDisplayInfo();
   const enemyInfo = getEnemyDisplayInfo();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.locationTitle}>
-        Battle at {title || locationData?.name || 'Arena'}
-      </Text>
-
-      {/* Location Info */}
-      {locationData && (
-        <View style={styles.locationInfo}>
-          <Text style={styles.locationInfoText}>
-            Owned by: {locationData.owner_team_name} ({locationData.owner_count} owners)
-          </Text>
-          <Text style={styles.locationInfoText}>
-            Defending Champion: {strongestOwnerProfile?.username || 'Loading...'}
-          </Text>
-        </View>
-      )}
+      <Text style={styles.title}>Battle Arena</Text>
+      <Text style={styles.subtitle}>{title || locationData?.name}</Text>
 
       {/* Battle Timer */}
-      {!battleResult && !cooldownStarted && (
+      {battleStarted && !battleResult && (
         <View style={styles.timerContainer}>
           <Text style={styles.timerText}>
-            Battle Time: {formatBattleTime(battleTime)}
-          </Text>
-        </View>
-      )}
-
-      {/* Cooldown Display */}
-      {(cooldownStarted && cooldownTimeLeft > 0) || battleResult === 'cooldown' && (
-        <View style={styles.cooldownContainer}>
-          <Text style={styles.cooldownTitle}>Battle Cooldown Active</Text>
-          <Text style={styles.cooldownTime}>
-            {formatCooldownTime(cooldownTimeLeft)}
-          </Text>
-          <Text style={styles.cooldownMessage}>
-            {battleResult === 'cooldown' 
-              ? 'You are still on cooldown from a previous battle'
-              : 'Time remaining before you can battle here again'
-            }
+            Battle Time: {formatTime(battleTime)}
           </Text>
         </View>
       )}
 
       {/* Battle Field */}
-      {battleResult !== 'cooldown' && (
-        <View style={styles.battleField}>
-          <View style={styles.playerSide}>
-            <Text style={styles.playerName}>You</Text>
-            <Image 
-              source={profileImage ? { uri: profileImage } : require('../assets/images/icon.png')} 
-              style={styles.playerImage} 
-            />
-            <View style={styles.healthBar}>
-              <View style={[styles.healthFill, { width: `${playerHealth}%`, backgroundColor: '#4CAF50' }]} />
-            </View>
-            <Text style={styles.healthText}>HP: {playerHealth}/100</Text>
+      <View style={styles.battleField}>
+        {!battleStarted && !battleResult && (
+          <View style={styles.startContainer}>
+            <Text style={styles.instructions}>
+              Engage in combat with the defending champion!{'\n'}
+              Tap the Attack button repeatedly to deal damage.{'\n'}
+              Defeat your opponent to capture this location!
+            </Text>
+            <TouchableOpacity style={styles.startButton} onPress={startBattle}>
+              <Text style={styles.startButtonText}>Begin Battle</Text>
+            </TouchableOpacity>
           </View>
+        )}
 
-          <Text style={styles.vsText}>VS</Text>
-
-          <View style={styles.enemySide}>
-            <Text style={styles.enemyName}>{enemyInfo.name}</Text>
-            <Image source={{ uri: enemyInfo.image }} style={styles.enemyImage} />
-            <View style={styles.healthBar}>
-              <View style={[styles.healthFill, { width: `${enemyHealth}%`, backgroundColor: '#F44336' }]} />
+        {battleStarted && (
+          <View style={styles.combatArea}>
+            <View style={styles.playerSide}>
+              <Text style={styles.playerName}>{userInfo.name}</Text>
+              <Image 
+                source={
+                  userInfo.image 
+                    ? { uri: userInfo.image }
+                    : require('../assets/images/icon.png')
+                } 
+                style={styles.playerImage} 
+              />
+              <View style={styles.healthBar}>
+                <View style={[styles.healthFill, { width: `${playerHealth}%`, backgroundColor: '#4CAF50' }]} />
+              </View>
+              <Text style={styles.healthText}>HP: {playerHealth}/100</Text>
+              <Text style={styles.teamText}>{userInfo.team}</Text>
             </View>
-            <Text style={styles.healthText}>HP: {enemyHealth}/100</Text>
-            <Text style={styles.strengthText}>Team: {enemyInfo.team}</Text>
-          </View>
-        </View>
-      )}
 
-      {/* Battle Result Display */}
-      {battleResult && battleResult !== 'cooldown' && (
-        <View style={styles.resultContainer}>
-          <Text style={[styles.resultText, { color: battleResult === 'victory' ? '#4CAF50' : '#F44336' }]}>
-            {battleResult === 'victory' ? 'VICTORY!' : 'DEFEAT!'}
-          </Text>
-          <Text style={styles.resultSubtext}>
-            Battle completed in {formatBattleTime(battleTime)}
-          </Text>
-          <Text style={styles.resultSubtext}>
-            Score: {calculateBattleScore(battleResult === 'victory' ? 'win' : 'lose')}
-          </Text>
-        </View>
-      )}
+            <Text style={styles.vsText}>VS</Text>
+
+            <View style={styles.enemySide}>
+              <Text style={styles.enemyName}>{enemyInfo.name}</Text>
+              <Image source={{ uri: enemyInfo.image }} style={styles.enemyImage} />
+              <View style={styles.healthBar}>
+                <View style={[styles.healthFill, { width: `${enemyHealth}%`, backgroundColor: '#F44336' }]} />
+              </View>
+              <Text style={styles.healthText}>HP: {enemyHealth}/100</Text>
+              <Text style={styles.teamText}>{enemyInfo.team}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Battle Result Display */}
+        {battleResult && (
+          <View style={styles.resultContainer}>
+            <Text style={[styles.resultText, { color: battleResult === 'victory' ? '#4CAF50' : '#F44336' }]}>
+              {battleResult === 'victory' ? 'VICTORY!' : 'DEFEAT!'}
+            </Text>
+            <Text style={styles.resultSubtext}>
+              Battle completed in {formatTime(battleTime)}
+            </Text>
+            <Text style={styles.resultSubtext}>
+              Final Score: {calculateBattleScore(battleResult === 'victory' ? 'win' : 'lose')} points
+            </Text>
+            <Text style={styles.resultSubtext}>
+              Health Remaining: {playerHealth}/100
+            </Text>
+          </View>
+        )}
+      </View>
 
       {/* Battle Controls */}
       <View style={styles.controls}>
-        {battleResult || cooldownStarted ? (
+        {battleResult || !battleStarted ? (
           <TouchableOpacity style={styles.exitButton} onPress={exitBattle}>
-            <Text style={styles.buttonText}>Exit Battle</Text>
+            <Text style={styles.exitButtonText}>Exit Arena</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.attackButton} onPress={playerAttack}>
-            <Text style={styles.buttonText}>Attack!</Text>
+            <Text style={styles.attackButtonText}>Attack!</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -479,33 +488,28 @@ export default function BattleArenaScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    padding: 20, 
-    backgroundColor: '#1a1a2e' 
+  container: {
+    flex: 1,
+    backgroundColor: '#1a1a2e',
+    padding: 20,
+    paddingTop: 50, // Add top padding for safe area
   },
-  locationTitle: { 
-    fontSize: 24, 
-    fontWeight: 'bold', 
-    textAlign: 'center', 
-    marginBottom: 15,
-    color: 'white'
-  },
-  locationInfo: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-  locationInfoText: {
-    color: '#ccc',
-    fontSize: 14,
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
     textAlign: 'center',
-    marginBottom: 3,
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 18,
+    color: '#FFD700',
+    textAlign: 'center',
+    marginBottom: 20,
   },
   timerContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
     padding: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 10,
@@ -515,148 +519,189 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFD700',
   },
-  cooldownContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-    padding: 15,
-    backgroundColor: 'rgba(244, 67, 54, 0.2)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#F44336',
-  },
-  cooldownTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#F44336',
-    marginBottom: 5,
-  },
-  cooldownTime: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#F44336',
-    marginBottom: 5,
-  },
-  cooldownMessage: {
-    fontSize: 14,
-    color: '#ccc',
-    textAlign: 'center',
-  },
   battleField: {
     flex: 1,
+    justifyContent: 'center',
+    minHeight: 400, // Ensure minimum height
+    paddingVertical: 20,
+  },
+  combatArea: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
+    minHeight: 200,
+  },
+  startContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  instructions: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 30,
+    lineHeight: 24,
+    paddingHorizontal: 10,
+  },
+  startButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 40,
+    paddingVertical: 15,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    minWidth: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  startButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   playerSide: {
     alignItems: 'center',
     flex: 1,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
   },
   enemySide: {
     alignItems: 'center',
     flex: 1,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
   },
   playerName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 8,
     color: '#4CAF50',
+    textAlign: 'center',
   },
   enemyName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 8,
     color: '#F44336',
+    textAlign: 'center',
   },
   playerImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    marginBottom: 15,
-    borderWidth: 3,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 10,
+    borderWidth: 2,
     borderColor: '#4CAF50',
   },
   enemyImage: {
-    width: 120,
-    height: 120,
-    marginBottom: 15,
-    borderWidth: 3,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 10,
+    borderWidth: 2,
     borderColor: '#F44336',
   },
   vsText: {
-    fontSize: 48,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#FFD700',
-    marginHorizontal: 20,
+    textAlign: 'center',
+    marginVertical: 15,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 4,
   },
   healthBar: {
-    width: 120,
-    height: 12,
+    width: 100,
+    height: 10,
     backgroundColor: '#333',
-    borderRadius: 6,
-    marginBottom: 8,
+    borderRadius: 5,
+    marginBottom: 6,
     borderWidth: 1,
     borderColor: '#555',
   },
   healthFill: {
     height: '100%',
-    borderRadius: 5,
+    borderRadius: 4,
   },
   healthText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     color: 'white',
+    textAlign: 'center',
+    marginBottom: 4,
   },
-  strengthText: {
-    fontSize: 12,
+  teamText: {
+    fontSize: 11,
     color: '#ccc',
-    marginTop: 5,
+    textAlign: 'center',
   },
   resultContainer: {
     alignItems: 'center',
-    marginBottom: 20,
-    padding: 15,
+    marginVertical: 20,
+    padding: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
+    borderRadius: 15,
+    marginHorizontal: 10,
   },
   resultText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: 10,
+    textAlign: 'center',
   },
   resultSubtext: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#ccc',
-    marginBottom: 3,
+    marginBottom: 4,
+    textAlign: 'center',
   },
   controls: {
     alignItems: 'center',
-    paddingBottom: 50,
-    marginTop: 20,
+    paddingBottom: 40,
+    paddingTop: 20,
+    marginTop: 'auto', // Push to bottom
   },
   attackButton: {
     backgroundColor: '#FF5722',
     paddingHorizontal: 40,
-    paddingVertical: 20,
+    paddingVertical: 18,
     borderRadius: 30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    minWidth: 150,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attackButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   exitButton: {
     backgroundColor: '#666',
-    paddingHorizontal: 40,
-    paddingVertical: 20,
-    borderRadius: 30,
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 25,
+    minWidth: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  buttonText: {
-    color: 'white',
-    fontSize: 20,
+  exitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
