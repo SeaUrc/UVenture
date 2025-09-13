@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useProfile } from './context/ProfileContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Mock enemy data
 const enemies = [
@@ -34,6 +35,8 @@ export default function BattleArenaScreen() {
     // Randomly select an enemy when battle starts
     const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)];
     setCurrentEnemy(randomEnemy);
+
+    checkExistingCooldown();
   }, []);
 
   // Battle timer effect
@@ -55,25 +58,29 @@ export default function BattleArenaScreen() {
 
   // Cooldown timer effect
   useEffect(() => {
-    let cooldownTimer;
-    
-    if (cooldownStarted && cooldownTimeLeft > 0) {
-      cooldownTimer = setInterval(() => {
-        setCooldownTimeLeft(prev => {
-          if (prev <= 1) {
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
+  let cooldownTimer;
+  
+  if (cooldownStarted && cooldownTimeLeft > 0) {
+    cooldownTimer = setInterval(() => {
+      setCooldownTimeLeft(prev => {
+        if (prev <= 1) {
+          // Cooldown finished, clean up
+          const cooldownKey = `arena_cooldown_${arenaId}`;
+          AsyncStorage.removeItem(cooldownKey).catch(console.error);
+          setCooldownStarted(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
 
-    return () => {
-      if (cooldownTimer) {
-        clearInterval(cooldownTimer);
-      }
-    };
-  }, [cooldownStarted, cooldownTimeLeft]);
+  return () => {
+    if (cooldownTimer) {
+      clearInterval(cooldownTimer);
+    }
+  };
+}, [cooldownStarted, cooldownTimeLeft, arenaId]);
 
   // Enemy attack interval effect
   useEffect(() => {
@@ -109,6 +116,31 @@ export default function BattleArenaScreen() {
     setCooldownStarted(true);
     setCooldownTimeLeft(cooldownSeconds);
     storeCooldownData();
+  };
+
+  const checkExistingCooldown = async () => {
+    try {
+      const cooldownKey = `arena_cooldown_${arenaId}`;
+      const cooldownData = await AsyncStorage.getItem(cooldownKey);
+      
+      if (cooldownData) {
+        const { cooldownEndTime } = JSON.parse(cooldownData);
+        const currentTime = Date.now();
+        
+        if (currentTime < cooldownEndTime) {
+          // Still on cooldown
+          const timeLeft = Math.ceil((cooldownEndTime - currentTime) / 1000);
+          setCooldownStarted(true);
+          setCooldownTimeLeft(timeLeft);
+          setBattleResult('cooldown'); // New battle result state
+        } else {
+          // Cooldown expired, remove it
+          await AsyncStorage.removeItem(cooldownKey);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing cooldown:', error);
+    }
   };
 
   const enemyAttack = () => {
@@ -150,21 +182,31 @@ export default function BattleArenaScreen() {
 
   const storeCooldownData = async () => {
     try {
-      const cooldownSeconds = BATTLE_COOLDOWN_MINUTES * 60;
-      await fetch(`YOUR_API_URL/arenas/${arenaId}/cooldown`, {
+        const cooldownSeconds = BATTLE_COOLDOWN_MINUTES * 60;
+        const cooldownEndTime = Date.now() + (cooldownSeconds * 1000);
+        const cooldownKey = `arena_cooldown_${arenaId}`;
+        
+        // Store locally with consistent key
+        await AsyncStorage.setItem(cooldownKey, JSON.stringify({
+        cooldownEndTime,
+        arenaId
+        }));
+        
+        // Also store on server
+        await fetch(`YOUR_API_URL/arenas/${arenaId}/cooldown`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+            'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: 'USER_ID', // Get from user profile/auth
-          cooldownEndTime: Date.now() + (cooldownSeconds * 1000),
+            userId: 'USER_ID',
+            cooldownEndTime,
         }),
-      });
+        });
     } catch (error) {
-      console.error('Error storing cooldown:', error);
+        console.error('Error storing cooldown:', error);
     }
-  };
+    };
 
   const playerAttack = () => {
     if (battleResult) return;
@@ -193,7 +235,7 @@ export default function BattleArenaScreen() {
       </Text>
 
       {/* Battle Timer */}
-      {!battleResult && (
+      {!battleResult && !cooldownStarted && (
         <View style={styles.timerContainer}>
           <Text style={styles.timerText}>
             Battle Time: {formatBattleTime(battleTime)}
@@ -202,47 +244,53 @@ export default function BattleArenaScreen() {
       )}
 
       {/* Cooldown Display */}
-      {cooldownStarted && cooldownTimeLeft > 0 && (
+      {(cooldownStarted && cooldownTimeLeft > 0) || battleResult === 'cooldown' && (
         <View style={styles.cooldownContainer}>
           <Text style={styles.cooldownTitle}>Battle Cooldown Active</Text>
           <Text style={styles.cooldownTime}>
             {formatCooldownTime(cooldownTimeLeft)}
           </Text>
           <Text style={styles.cooldownMessage}>
-            Time remaining before you can battle here again
+            {battleResult === 'cooldown' 
+              ? 'You are still on cooldown from a previous battle'
+              : 'Time remaining before you can battle here again'
+            }
           </Text>
         </View>
       )}
 
-      {/* Battle Field */}
-      <View style={styles.battleField}>
-        <View style={styles.playerSide}>
-          <Text style={styles.playerName}>You</Text>
-          <Image 
-            source={profileImage ? { uri: profileImage } : require('../assets/images/icon.png')} 
-            style={styles.playerImage} 
-          />
-          <View style={styles.healthBar}>
-            <View style={[styles.healthFill, { width: `${playerHealth}%`, backgroundColor: '#4CAF50' }]} />
+      {/* Battle Field - Hide if on cooldown from start */}
+      {battleResult !== 'cooldown' && (
+        <View style={styles.battleField}>
+          {/* ...existing battle field code... */}
+          <View style={styles.playerSide}>
+            <Text style={styles.playerName}>You</Text>
+            <Image 
+              source={profileImage ? { uri: profileImage } : require('../assets/images/icon.png')} 
+              style={styles.playerImage} 
+            />
+            <View style={styles.healthBar}>
+              <View style={[styles.healthFill, { width: `${playerHealth}%`, backgroundColor: '#4CAF50' }]} />
+            </View>
+            <Text style={styles.healthText}>HP: {playerHealth}/100</Text>
           </View>
-          <Text style={styles.healthText}>HP: {playerHealth}/100</Text>
-        </View>
 
-        <Text style={styles.vsText}>VS</Text>
+          <Text style={styles.vsText}>VS</Text>
 
-        <View style={styles.enemySide}>
-          <Text style={styles.enemyName}>{currentEnemy?.name || 'Enemy'}</Text>
-          <Image source={{ uri: currentEnemy?.image }} style={styles.enemyImage} />
-          <View style={styles.healthBar}>
-            <View style={[styles.healthFill, { width: `${enemyHealth}%`, backgroundColor: '#F44336' }]} />
+          <View style={styles.enemySide}>
+            <Text style={styles.enemyName}>{currentEnemy?.name || 'Enemy'}</Text>
+            <Image source={{ uri: currentEnemy?.image }} style={styles.enemyImage} />
+            <View style={styles.healthBar}>
+              <View style={[styles.healthFill, { width: `${enemyHealth}%`, backgroundColor: '#F44336' }]} />
+            </View>
+            <Text style={styles.healthText}>HP: {enemyHealth}/100</Text>
+            <Text style={styles.strengthText}>Strength: {currentEnemy?.strength || 0}</Text>
           </View>
-          <Text style={styles.healthText}>HP: {enemyHealth}/100</Text>
-          <Text style={styles.strengthText}>Strength: {currentEnemy?.strength || 0}</Text>
         </View>
-      </View>
+      )}
 
       {/* Battle Result Display */}
-      {battleResult && (
+      {battleResult && battleResult !== 'cooldown' && (
         <View style={styles.resultContainer}>
           <Text style={[styles.resultText, { color: battleResult === 'victory' ? '#4CAF50' : '#F44336' }]}>
             {battleResult === 'victory' ? 'VICTORY!' : 'DEFEAT!'}
@@ -255,7 +303,7 @@ export default function BattleArenaScreen() {
 
       {/* Battle Controls */}
       <View style={styles.controls}>
-        {battleResult ? (
+        {battleResult || cooldownStarted ? (
           <TouchableOpacity style={styles.exitButton} onPress={exitBattle}>
             <Text style={styles.buttonText}>Exit Battle</Text>
           </TouchableOpacity>

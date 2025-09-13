@@ -11,7 +11,6 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    // Remove: <ProfileProvider>
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
@@ -52,6 +51,5 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
-    // Remove: </ProfileProvider>
   );
 }

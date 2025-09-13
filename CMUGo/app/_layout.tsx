@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import React from 'react';
-import { ProfileProvider } from './context/ProfileContext';
+import ProfileProvider from './context/ProfileContext';
 
 export default function RootLayout() {
   return (

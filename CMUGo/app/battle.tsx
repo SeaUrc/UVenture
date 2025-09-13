@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Team colors for display
 const teamColors = {
@@ -33,6 +35,13 @@ export default function BattleScreen() {
     checkCooldownStatus();
   }, []);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      // Refresh cooldown status when screen comes into focus
+      checkCooldownStatus();
+    }, [id])
+  );
+
   // Cooldown timer effect
   useEffect(() => {
     let interval;
@@ -51,21 +60,39 @@ export default function BattleScreen() {
   }, [onCooldown, cooldownTimeLeft]);
 
   const checkCooldownStatus = async () => {
-    try {
-      // Check if user has battled at this pokestop recently
-      const response = await fetch(`YOUR_API_URL/pokestops/${id}/cooldown/USER_ID`);
-      const cooldownData = await response.json();
+  try {
+    // Check local storage first
+    const cooldownKey = `arena_cooldown_${id}`;
+    const cooldownData = await AsyncStorage.getItem(cooldownKey);
+    
+    if (cooldownData) {
+      const { cooldownEndTime } = JSON.parse(cooldownData);
+      const currentTime = Date.now();
       
-      if (cooldownData.onCooldown) {
+      if (currentTime < cooldownEndTime) {
+        // Still on cooldown
+        const timeLeft = Math.ceil((cooldownEndTime - currentTime) / 1000);
         setOnCooldown(true);
-        setCooldownTimeLeft(cooldownData.timeLeft); // time left in seconds
+        setCooldownTimeLeft(timeLeft);
+      } else {
+        // Cooldown expired, remove it
+        await AsyncStorage.removeItem(cooldownKey);
+        setOnCooldown(false);
       }
-    } catch (error) {
-      console.error('Error checking cooldown:', error);
-      // For development, you can simulate cooldown state
-      // setOnCooldown(false);
     }
-  };
+    
+    // Also check server as backup
+    const response = await fetch(`YOUR_API_URL/arenas/${id}/cooldown/USER_ID`);
+    const serverCooldownData = await response.json();
+    
+    if (serverCooldownData.onCooldown) {
+      setOnCooldown(true);
+      setCooldownTimeLeft(serverCooldownData.timeLeft);
+    }
+  } catch (error) {
+    console.error('Error checking cooldown:', error);
+  }
+};
 
   const formatCooldownTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
@@ -107,17 +134,20 @@ export default function BattleScreen() {
   };
 
   const startBattle = () => {
-    if (onCooldown) return;
-    
-    // Navigate to battle arena instead of starting battle here
-    router.push({
-      pathname: '/battle-arena',
-      params: {
-        pokestopId: id,
-        title: title,
-      },
-    });
-  };
+  if (onCooldown) {
+    Alert.alert('Cooldown Active', `You must wait ${formatCooldownTime(cooldownTimeLeft)} before battling again.`);
+    return;
+  }
+  
+  // Navigate to battle arena
+  router.push({
+    pathname: '/battle-arena',
+    params: {
+      arenaId: id,
+      title: title,
+    },
+  });
+};
 
   return (
     <ScrollView style={styles.container}>
