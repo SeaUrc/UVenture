@@ -77,6 +77,15 @@ def test_profile_endpoints(token, user_id):
     print(f"Status: {response.status_code}")
     print(f"Response: {response.text}")
 
+def test_admin_endpoints():
+    """Test admin endpoints"""
+    print("\nTesting manual points award...")
+    
+    url = f"{BASE_URL}/../admin/award-points"  # Note: admin endpoints are not under /api
+    response = requests.post(url, json={})
+    print(f"Status: {response.status_code}")
+    print(f"Response: {response.text}")
+
 def test_locations():
     """Test locations endpoints"""
     print("\nTesting get locations...")
@@ -98,6 +107,9 @@ def main():
     print("=" * 30)
     print("Make sure the Flask server is running on http://127.0.0.1:5001")
     print()
+    
+    # Test admin endpoints
+    test_admin_endpoints()
     
     # Test locations (no auth required)
     test_locations()

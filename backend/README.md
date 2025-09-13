@@ -86,7 +86,18 @@ All API endpoints are prefixed with `/api`:
 
 ### System
 - `GET /` - API information and available endpoints
-- `GET /health` - Health check (includes Supabase status)
+- `GET /health` - Health check (includes Supabase status and background task status)
+- `POST /admin/award-points` - Manually trigger points award cycle (for testing)
+
+## Background Tasks
+
+The server runs a background task that automatically awards points to teams every 10 minutes:
+
+- **Location Points Award**: Scans all locations and awards points to owner teams
+  - For each location, adds `owner_count` points to the `points` field of the `owner_team` in the teams table
+  - Runs every 10 minutes automatically
+  - Can be manually triggered via `/admin/award-points` endpoint
+  - Logs all activity with timestamps
 
 ## Supabase Configuration
 
