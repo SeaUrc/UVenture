@@ -596,7 +596,7 @@ export default function BattleScreen() {
         {/* Battle Preview */}
         <View style={styles.battlePreview}>
           <Text style={styles.battleTitle}>
-            {isUserOwner || isUserStrongestOwner ? 'Location Status' : 'Battle Preview'}
+            {isUserOwner || isUserStrongestOwner ? 'Location Status' : onSameTeam ? 'Defending Champion' : 'Battle Preview'}
           </Text>
           
           <View style={styles.fightCard}>
@@ -616,6 +616,19 @@ export default function BattleScreen() {
                   <Text style={styles.fighterTeam}>{userInfo.team}</Text>
                 </View>
                 <Text style={styles.championText}>👑 Current Champion</Text>
+              </View>
+            ) : onSameTeam ? (
+              /* Same Team Mode - Show only defending champion */
+              <View style={styles.championDisplay}>
+                <View style={styles.fighterSide}>
+                  <Image 
+                    source={{ uri: enemyInfo.image }} 
+                    style={styles.fighterImage} 
+                  />
+                  <Text style={styles.fighterName}>{enemyInfo.name}</Text>
+                  <Text style={styles.fighterTeam}>{enemyInfo.team}</Text>
+                </View>
+                <Text style={styles.championText}>👑 Your Team's Champion</Text>
               </View>
             ) : (
               /* Battle Mode - Show both fighters */
@@ -673,6 +686,13 @@ export default function BattleScreen() {
             <Text style={styles.championTitle}>👑 You Are The Champion</Text>
             <Text style={styles.championMessage}>
               You are the defending champion of this location. Wait for challengers to come to you!
+            </Text>
+          </View>
+        ) : onSameTeam ? (
+          <View style={styles.instructionContainer}>
+            <Text style={styles.instructionText}>
+              Your team already controls this location!
+              {'\n\n'}Join your teammate to help defend and earn more points for your team.
             </Text>
           </View>
         ) : (

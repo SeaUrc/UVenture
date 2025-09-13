@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { StyleSheet, View, Platform, Alert, Image, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Platform, Image, TouchableOpacity } from 'react-native';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { CustomModal } from '@/components/custom-modal';
+import { useCustomModal } from '@/hooks/use-custom-modal';
 import { useNavigation } from '@react-navigation/native';
 import { Fonts } from '@/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -50,12 +52,19 @@ export default function TabTwoScreen() {
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+<<<<<<< HEAD
+  const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
+=======
   const [userProfile, setUserProfile] = useState<ProfileData | null>(null);
+>>>>>>> 388a25efa0910f9aa945520d109adc29333db498
   
   // Map following state
   const [isFollowingUser, setIsFollowingUser] = useState(true);
   const mapRef = useRef<MapView>(null);
   // const isAnimatingRef = useRef(false);
+
+  // Custom modal hook
+  const { isVisible, modalOptions, showAlert, hideModal } = useCustomModal();
 
   // Get stored auth data and check if user is logged in
   useEffect(() => {
@@ -117,7 +126,7 @@ export default function TabTwoScreen() {
   
   // Logout function
   const handleLogout = async () => {
-    Alert.alert(
+    showAlert(
       'Logout',
       'Are you sure you want to logout?',
       [
@@ -149,20 +158,60 @@ export default function TabTwoScreen() {
       setLocations(data.data || []);
     } catch (error) {
       console.error('Error fetching locations:', error);
-      Alert.alert('Error', 'Failed to load locations from server');
+      showAlert('Error', 'Failed to load locations from server');
     }
   };
+
+  // Fetch user profile picture
+  const fetchUserProfilePicture = useCallback(async () => {
+    if (!userToken || !userId) return;
+    
+    try {
+      const response = await fetch(`${databaseUrl}/api/profile/get_profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`,
+        },
+        body: JSON.stringify({ id: userId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.image) {
+        setUserProfileImage(`data:image/png;base64,${data.image}`);
+      } else {
+        setUserProfileImage(null);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile picture:', error);
+      // Don't show an alert for this, just fallback to default icon
+      setUserProfileImage(null);
+    }
+  }, [userToken, userId]);
+
+  // Fetch user profile picture when userId changes
+  useEffect(() => {
+    if (userToken && userId) {
+      fetchUserProfilePicture();
+    }
+  }, [userId, userToken, fetchUserProfilePicture]);
 
   useEffect(() => {
     if (!userToken || isAuthLoading) return;
     fetchLocations();
-    const interval = setInterval(fetchLocations, 30000); // Refresh locations every 30 seconds
+    const interval = setInterval(() => {
+      fetchLocations();
+    }, 30000); // Refresh locations every 30 seconds
     return () => clearInterval(interval);
   }, [userToken, isAuthLoading]);
 
   const handleBattleStart = async (locationData: LocationData) => {
     if (!userToken) {
-      Alert.alert('Authentication Required', 'Please log in to battle for locations');
+      showAlert('Authentication Required', 'Please log in to battle for locations');
       return;
     }
 
@@ -275,14 +324,13 @@ export default function TabTwoScreen() {
     const withinRadius = isWithinBattleRadius(locationData);
     
     if (withinRadius) {
-      Alert.alert(
+      showAlert(
         locationData.name,
-        `Current Champion: ${locationData.owner_team_name}\n\nYou are within battle range!`,
+        `Owned by: ${locationData.owner_team_name}\n\nYou are within battle range!`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Battle', style: 'default', onPress: () => handleBattleStart(locationData) },
-        ],
-        { cancelable: true }
+          { text: 'Enter', style: 'default', onPress: () => handleBattleStart(locationData) },
+        ]
       );
     } else {
       const distance = calculateDistance(
@@ -292,10 +340,9 @@ export default function TabTwoScreen() {
         locationData.longitude
       );
       
-      Alert.alert(
+      showAlert(
         locationData.name,
-        `Owned by: ${locationData.owner_team_name}\nOwners: ${locationData.owner_count}\n\nYou are ${Math.round(distance)}m away. Get within ${BATTLE_RADIUS}m to battle!`,
-        [{ text: 'OK', style: 'default' }]
+        `Owned by: ${locationData.owner_team_name}\nOwners: ${locationData.owner_count}\n\nYou are ${Math.round(distance)}m away. Get within ${BATTLE_RADIUS}m to battle!`
       );
     }
   };
@@ -361,6 +408,16 @@ export default function TabTwoScreen() {
               title="You are here"
             >
               <View style={styles.userLocationMarker}>
+<<<<<<< HEAD
+                <Image 
+                  source={
+                    userProfileImage 
+                      ? { uri: userProfileImage } 
+                      : require('@/assets/images/icon.png')
+                  } 
+                  style={[styles.markerImage, userProfileImage && styles.userProfileImage]}
+                />
+=======
                 {userProfile && userProfile.image ? (
                   <Image 
                     source={{ uri: `data:image/png;base64,${userProfile.image}` }}
@@ -372,6 +429,7 @@ export default function TabTwoScreen() {
                     style={styles.markerImage}
                   />
                 )}
+>>>>>>> 388a25efa0910f9aa945520d109adc29333db498
               </View>
             </Marker>
           )}
@@ -449,6 +507,16 @@ export default function TabTwoScreen() {
           </View>
         </TouchableOpacity>
     </View>
+
+    {/* Custom Modal */}
+    <CustomModal
+      visible={isVisible}
+      title={modalOptions.title}
+      message={modalOptions.message}
+      buttons={modalOptions.buttons}
+      onBackdropPress={hideModal}
+      showCloseButton={modalOptions.showCloseButton}
+    />
     </ThemedView>
   );
 }
@@ -531,6 +599,9 @@ const styles = StyleSheet.create({
   markerImage: {
     width: '100%',
     height: '100%',
+  },
+  userProfileImage: {
+    borderRadius: 20, // Make it circular to match the container
   },
   followButton: {
     position: 'absolute',
