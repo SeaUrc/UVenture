@@ -52,11 +52,8 @@ export default function TabTwoScreen() {
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
   const [username, setUsername] = useState<string | null>(null);
-<<<<<<< HEAD
-  const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
-=======
   const [userProfile, setUserProfile] = useState<ProfileData | null>(null);
->>>>>>> 388a25efa0910f9aa945520d109adc29333db498
+  const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
   
   // Map following state
   const [isFollowingUser, setIsFollowingUser] = useState(true);
@@ -408,7 +405,6 @@ export default function TabTwoScreen() {
               title="You are here"
             >
               <View style={styles.userLocationMarker}>
-<<<<<<< HEAD
                 <Image 
                   source={
                     userProfileImage 
@@ -417,19 +413,6 @@ export default function TabTwoScreen() {
                   } 
                   style={[styles.markerImage, userProfileImage && styles.userProfileImage]}
                 />
-=======
-                {userProfile && userProfile.image ? (
-                  <Image 
-                    source={{ uri: `data:image/png;base64,${userProfile.image}` }}
-                    style={styles.markerImage}
-                  />
-                ) : (
-                  <Image 
-                    source={require('@/assets/images/icon.png')} 
-                    style={styles.markerImage}
-                  />
-                )}
->>>>>>> 388a25efa0910f9aa945520d109adc29333db498
               </View>
             </Marker>
           )}

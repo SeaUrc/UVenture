@@ -695,7 +695,7 @@ const addNeonIntensity = (color: string) => {
     setTimeout(() => {
         startButtonMovement();
     }, 100);
-  };
+    };
 
   // Special ability helper functions
   const getPlayerType = (teamId: number | null): 'STEM' | 'Humanities' | 'Arts' | 'Normal' => {
@@ -1056,8 +1056,6 @@ const addNeonIntensity = (color: string) => {
       if (battleResponse.message === 'win' && result === 'win') {
         await becomeOwner(locationData?.name || 'the location');
 <<<<<<< HEAD
-=======
-<<<<<<< HEAD
           setTimeout(() => {
             setInitialChampionProfile(null);
             router.back();
@@ -1065,15 +1063,11 @@ const addNeonIntensity = (color: string) => {
 =======
         exitBattle();
 >>>>>>> 70910e264d34cb4e354ddc18cd03fcd3a77a7043
->>>>>>> 388a25efa0910f9aa945520d109adc29333db498
       } else if (result === 'win') {
         showAlert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
           {
             text: 'OK',
             onPress: () => {
-<<<<<<< HEAD
-              exitBattle();
-=======
 <<<<<<< HEAD
               setTimeout(() => {
                 setInitialChampionProfile(null);
@@ -1082,7 +1076,6 @@ const addNeonIntensity = (color: string) => {
 =======
               
 >>>>>>> 70910e264d34cb4e354ddc18cd03fcd3a77a7043
->>>>>>> 388a25efa0910f9aa945520d109adc29333db498
             }
           }
         ]);
@@ -1095,9 +1088,6 @@ const addNeonIntensity = (color: string) => {
               text: 'OK',
               onPress: () => {
 <<<<<<< HEAD
-                exitBattle();
-=======
-<<<<<<< HEAD
                 setTimeout(() => {
                   setInitialChampionProfile(null);
                   router.back();
@@ -1105,7 +1095,6 @@ const addNeonIntensity = (color: string) => {
 =======
                 
 >>>>>>> 70910e264d34cb4e354ddc18cd03fcd3a77a7043
->>>>>>> 388a25efa0910f9aa945520d109adc29333db498
               }
             }
           ]
