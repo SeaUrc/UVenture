@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 type LocationData = {
   id: number;
   name: string;
-  image: string; // Base64 image data
+  image: string; 
   latitude: number;
   longitude: number;
   owner_team: number;
@@ -118,7 +118,7 @@ export default function TabTwoScreen() {
         }
         
         const data = await response.json();
-        console.log('Fetched locations:', data.data);
+        // console.log('Fetched locations:', data.data);
         setLocations(data.data || []);
       } catch (error) {
         console.error('Error fetching locations:', error);
@@ -553,15 +553,17 @@ const handleMarkerPress = (locationData: LocationData) => {
                   ]}>
                     {locationData.image ? (
                       <Image 
-                        source={{ uri: `data:image/png;base64,${locationData.image}` }}
+                        source={{ uri: locationData.image }}
                         style={styles.markerImage}
                         resizeMode="cover"
+                        onError={(e) => console.log("❌ Image failed", e.nativeEvent)}
                       />
                     ) : (
                       <Image 
                         source={require('@/assets/images/react-logo.png')}
                         style={styles.markerImage}
                         resizeMode="cover"
+                        onLoad={() => console.log("✅ Image loaded successfully")}
                       />
                     )}
                   </View>
