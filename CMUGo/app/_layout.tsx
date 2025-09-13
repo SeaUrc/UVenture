@@ -9,6 +9,12 @@ export default function RootLayout() {
         {/* Tabs navigator */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen 
+          name="login" 
+          options={{ 
+            headerShown: false
+          }} 
+        />
+        <Stack.Screen 
           name="battle" 
           options={{ 
             headerShown: false,

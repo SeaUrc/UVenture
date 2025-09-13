@@ -517,7 +517,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 30,
-    paddingVertical: 60,
+    paddingTop: 80,
+    paddingBottom: 60,
   },
   title: {
     fontFamily: Fonts.rounded,
@@ -525,6 +526,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 10,
+    marginTop: 20,
   },
   subtitle: {
     fontSize: 16,

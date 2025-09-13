@@ -279,11 +279,14 @@ const animateButtonMovement = () => {
   // Create many more sparks
   const sparkCount = Math.min(5 + Math.floor(tapCount * 2), 15);
   
+  // Generate a unique timestamp-based base ID to prevent duplicates when spamming
+  const baseId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+  
   for (let i = 0; i < sparkCount; i++) {
     const sparkleColor = getRealisticSparkColor();
     
     const sparkle: Sparkle = {
-      id: sparkleIdCounter + i,
+      id: baseId + i,
       x: new Animated.Value(0),
       y: new Animated.Value(0),
       opacity: new Animated.Value(1),
@@ -1965,31 +1968,31 @@ innerGlow: {
 },
 sparkLine: {
   position: 'absolute',
-  width: 16,
-  height: 3,
+  width: 24,
+  height: 4,
   zIndex: 1000,
-  borderRadius: 1,
+  borderRadius: 2,
 },
 sparkSlash: {
   position: 'absolute',
-  width: 16,
-  height: 3,
+  width: 24,
+  height: 4,
   zIndex: 1000,
-  borderRadius: 1,
+  borderRadius: 2,
 },
 sparkBackslash: {
   position: 'absolute',
-  width: 16,
-  height: 3,
+  width: 24,
+  height: 4,
   zIndex: 1000,
-  borderRadius: 1,
+  borderRadius: 2,
 },
 sparkCross: {
   position: 'absolute',
-  width: 12,
-  height: 3,
+  width: 18,
+  height: 4,
   zIndex: 1000,
-  borderRadius: 1,
+  borderRadius: 2,
 },
 innerGlowLine: {
   position: 'absolute',
@@ -2026,38 +2029,38 @@ innerGlowCross: {
 // Soldering-style spark shapes
 sparkDot: {
   position: 'absolute',
-  width: 2,
-  height: 2,
+  width: 3,
+  height: 3,
   zIndex: 1000,
-  borderRadius: 1,
+  borderRadius: 1.5,
 },
 sparkLine: {
   position: 'absolute',
-  width: 6,
-  height: 1,
+  width: 9,
+  height: 1.5,
   zIndex: 1000,
-  borderRadius: 0.5,
+  borderRadius: 0.75,
 },
 sparkSlash: {
   position: 'absolute',
-  width: 5,
-  height: 1,
+  width: 7.5,
+  height: 1.5,
   zIndex: 1000,
-  borderRadius: 0.5,
+  borderRadius: 0.75,
 },
 sparkBackslash: {
   position: 'absolute',
-  width: 5,
-  height: 1,
+  width: 7.5,
+  height: 1.5,
   zIndex: 1000,
-  borderRadius: 0.5,
+  borderRadius: 0.75,
 },
 sparkCross: {
   position: 'absolute',
-  width: 4,
-  height: 1,
+  width: 6,
+  height: 1.5,
   zIndex: 1000,
-  borderRadius: 0.5,
+  borderRadius: 0.75,
 },
 sparkStar: {
   position: 'absolute',
