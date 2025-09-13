@@ -10,7 +10,7 @@ from database import get_supabase_client
 from routes.auth import auth_bp
 from routes.profile import profile_bp
 from routes.locations import locations_bp
-from routes.battles import battles_bp
+from routes.interactions import interactions_bp
 from routes.teams import teams_bp
 
 # Load environment variables
@@ -101,7 +101,7 @@ def start_background_tasks():
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(profile_bp, url_prefix='/api/profile')
 app.register_blueprint(locations_bp, url_prefix='/api/locations')
-app.register_blueprint(battles_bp, url_prefix='/api/battles')
+app.register_blueprint(interactions_bp, url_prefix='/api/interactions')
 app.register_blueprint(teams_bp, url_prefix='/api/teams')
 
 @app.route('/')
@@ -113,7 +113,7 @@ def hello_world():
             'auth': '/api/auth',
             'profile': '/api/profile',
             'locations': '/api/locations',
-            'battles': '/api/battles',
+            'interactions': '/api/interactions',
             'teams': '/api/teams'
         }
     })
