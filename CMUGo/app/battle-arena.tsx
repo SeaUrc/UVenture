@@ -695,7 +695,7 @@ const addNeonIntensity = (color: string) => {
     setTimeout(() => {
         startButtonMovement();
     }, 100);
-  };
+    };
 
   // Special ability helper functions
   const getPlayerType = (teamId: number | null): 'STEM' | 'Humanities' | 'Arts' | 'Normal' => {
@@ -1107,6 +1107,12 @@ const addNeonIntensity = (color: string) => {
       
       if (battleResponse.message === 'win' && result === 'win') {
         await becomeOwner(locationData?.name || 'the location');
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> e7acfc5b111a1705d30a9f704cd895b2f5276643
           setTimeout(() => {
             setInitialChampionProfile(null);
             router.back();
@@ -1134,7 +1140,14 @@ const addNeonIntensity = (color: string) => {
             {
               text: 'OK',
               onPress: () => {
+<<<<<<< HEAD
                 exitBattle();
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 2743fc6e8af851c29d94f3197090d1ab18931037
+>>>>>>> e7acfc5b111a1705d30a9f704cd895b2f5276643
                 setTimeout(() => {
                   setInitialChampionProfile(null);
                   router.back();
