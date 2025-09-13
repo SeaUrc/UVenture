@@ -908,7 +908,7 @@ const addNeonIntensity = (color: string) => {
             text: 'OK',
             onPress: () => {
               setTimeout(() => {
-                router.back()');
+                router.back();
               }, 1000);
             }
           }
