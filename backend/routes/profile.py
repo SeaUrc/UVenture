@@ -159,7 +159,7 @@ def get_profile():
         
         # Get user profile from database (excluding password_hash for security)
         response = supabase.table('users').select(
-            'username, team, image, strength'
+            'username, team, image, strength, wins, losses'
         ).eq('id', user_id).execute()
         
         if not response.data:
@@ -167,11 +167,24 @@ def get_profile():
         
         user = response.data[0]
         
+        # Get locations where this user is the strongest owner
+        locations_response = supabase.table('locations').select(
+            'name'
+        ).eq('strongest_owner_id', user_id).execute()
+        
+        # Extract location names into an array
+        defending_locations = []
+        if locations_response.data:
+            defending_locations = [location.get('name') for location in locations_response.data if location.get('name')]
+        
         return jsonify({
             'username': user.get('username'),
             'team': user.get('team'),
             'image': user.get('image'),
-            'strength': user.get('strength')
+            'strength': user.get('strength'),
+            'wins': user.get('wins'),
+            'losses': user.get('losses'),
+            'defending': defending_locations
         }), 200
         
     except Exception as e:

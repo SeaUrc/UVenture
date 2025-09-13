@@ -57,7 +57,7 @@ All API endpoints are prefixed with `/api`:
   - Error: `{"error": string}` (400/401/500)
 - `POST /api/profile/get_profile` - Get user profile by ID
   - Input: `{"id": number}`
-  - Success: `{"username": string, "team": number, "image": string, "strength": number}` (200)
+  - Success: `{"username": string, "team": number, "image": string, "strength": number, "wins": number, "losses": number, "defending": [string]}` (200)
   - Error: `{"error": string}` (400/404/500)
 
 ### Locations (`/api/locations`)
@@ -114,7 +114,9 @@ CREATE TABLE users (
     team INTEGER,
     password_hash TEXT NOT NULL,
     strength INTEGER DEFAULT 0,
-    image TEXT  -- For base64 profile pictures
+    image TEXT,  -- For base64 profile pictures
+    wins INTEGER DEFAULT 0,
+    losses INTEGER DEFAULT 0
 );
 
 -- Teams table
