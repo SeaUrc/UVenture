@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Animated } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CustomModal } from '@/components/custom-modal';
+import { useCustomModal } from '@/hooks/use-custom-modal';
 
 import { Colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
@@ -62,12 +64,19 @@ export default function BattleArenaScreen() {
   const { id, title, ownerTeam, ownerColor } = useLocalSearchParams();
   const router = useRouter();
 
+  // Custom modal hook
+  const { isVisible, modalOptions, showAlert, hideModal } = useCustomModal();
+
   // Battle state
   const [playerHealth, setPlayerHealth] = useState(100);
   const [enemyHealth, setEnemyHealth] = useState(100);
   const [battleStarted, setBattleStarted] = useState(false);
   const [battleResult, setBattleResult] = useState<string | null>(null);
   const [battleTime, setBattleTime] = useState(0);
+  
+  // Exit button countdown state
+  const [exitCountdown, setExitCountdown] = useState(0);
+  const [exitButtonEnabled, setExitButtonEnabled] = useState(true);
   
   // Animation state
   const [buttonScale] = useState(new Animated.Value(1));
@@ -211,14 +220,14 @@ const animateButtonMovement = () => {
         // Success - refresh location data to show updated owner count
         await fetchLocationData();
         setHasJoinedArena(true);
-        Alert.alert('Success!', 'You have joined the arena as a defender!');
+        showAlert('Success!', 'You have joined the arena as a defender!');
       } else {
         const errorData = await response.json();
-        Alert.alert('Error', errorData.error || 'Failed to join arena');
+        showAlert('Error', errorData.error || 'Failed to join arena');
       }
     } catch (error) {
       console.error('Error joining arena:', error);
-      Alert.alert('Error', 'Failed to join arena. Please try again.');
+      showAlert('Error', 'Failed to join arena. Please try again.');
     } finally {
       setIsJoining(false);
     }
@@ -549,7 +558,7 @@ const addNeonIntensity = (color: string) => {
       }
     } catch (error) {
       console.error('Error fetching location data:', error);
-      Alert.alert('Error', 'Failed to load battle arena data');
+      showAlert('Error', 'Failed to load battle arena data');
     }
   };
 
@@ -616,6 +625,37 @@ const addNeonIntensity = (color: string) => {
     };
   }, [battleStarted, battleResult, enemyHealth, playerHealth]);
 
+  // Exit button countdown effect
+  useEffect(() => {
+    let countdownTimer: NodeJS.Timeout;
+    
+    if (battleResult) {
+      // Start 3-second countdown when battle ends
+      setExitCountdown(3);
+      setExitButtonEnabled(false);
+      
+      countdownTimer = setInterval(() => {
+        setExitCountdown(prev => {
+          if (prev <= 1) {
+            setExitButtonEnabled(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      // Reset when no battle result
+      setExitCountdown(0);
+      setExitButtonEnabled(true);
+    }
+
+    return () => {
+      if (countdownTimer) {
+        clearInterval(countdownTimer);
+      }
+    };
+  }, [battleResult]);
+
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -628,6 +668,8 @@ const addNeonIntensity = (color: string) => {
     setEnemyHealth(100);
     setBattleTime(0);
     setBattleResult(null);
+    setExitCountdown(0);
+    setExitButtonEnabled(true);
     setTapCount(0);
     setSparkles([]);
     
@@ -635,7 +677,7 @@ const addNeonIntensity = (color: string) => {
     setTimeout(() => {
         startButtonMovement();
     }, 100);
-    };
+  };
 
   const calculateDamage = (attackerStrength: number, defenderStrength: number): number => {
   // Ensure strength values are within valid range (1-100)
@@ -905,25 +947,24 @@ const addNeonIntensity = (color: string) => {
       
       if (battleResponse.message === 'win' && result === 'win') {
         await becomeOwner(locationData?.name || 'the location');
-        exitBattle();
       } else if (result === 'win') {
-        Alert.alert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
+        showAlert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
           {
             text: 'OK',
             onPress: () => {
-              
+              exitBattle();
             }
           }
         ]);
       } else {
-        Alert.alert(
+        showAlert(
           'Defeat',
           `You were defeated at ${locationData?.name || 'the location'}. Train harder and try again in ${BATTLE_COOLDOWN_MINUTES} minutes!`,
           [
             {
               text: 'OK',
               onPress: () => {
-                
+                exitBattle();
               }
             }
           ]
@@ -933,16 +974,17 @@ const addNeonIntensity = (color: string) => {
       console.error('Error submitting battle result:', error);
       
       // More specific error handling
-      if (error.message.includes('401')) {
-        Alert.alert('Authentication Error', 'Your session has expired. Please log in again.');
-      } else if (error.message.includes('400')) {
-        Alert.alert('Invalid Request', 'Battle request was invalid. Please try again.');
-      } else if (error.message.includes('404')) {
-        Alert.alert('Location Not Found', 'This location no longer exists.');
-      } else if (error.message.includes('429')) {
-        Alert.alert('Too Many Requests', 'Please wait before battling again.');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('401')) {
+        showAlert('Authentication Error', 'Your session has expired. Please log in again.');
+      } else if (errorMessage.includes('400')) {
+        showAlert('Invalid Request', 'Battle request was invalid. Please try again.');
+      } else if (errorMessage.includes('404')) {
+        showAlert('Location Not Found', 'This location no longer exists.');
+      } else if (errorMessage.includes('429')) {
+        showAlert('Too Many Requests', 'Please wait before battling again.');
       } else {
-        Alert.alert('Battle Error', `Failed to submit battle result: ${error.message}`);
+        showAlert('Battle Error', `Failed to submit battle result: ${errorMessage}`);
       }
     }
   };
@@ -979,7 +1021,7 @@ const addNeonIntensity = (color: string) => {
       console.log('Refreshing location data after becoming owner...');
       await fetchLocationData();
       
-      Alert.alert('Success!', 'You are now an owner of this location!');
+      // showAlert('Success!', 'You are now an owner of this location!');
     } catch (error) {
       console.error('Error becoming owner:', error);
     }
@@ -1168,8 +1210,14 @@ const addNeonIntensity = (color: string) => {
         )}
         
         {battleResult || !battleStarted ? (
-          <TouchableOpacity style={styles.exitButton} onPress={exitBattle}>
-            <Text style={styles.exitButtonText}>Exit Arena</Text>
+          <TouchableOpacity 
+            style={[styles.exitButton, !exitButtonEnabled && styles.exitButtonDisabled]} 
+            onPress={exitBattle}
+            disabled={!exitButtonEnabled}
+          >
+            <Text style={[styles.exitButtonText, !exitButtonEnabled && styles.exitButtonTextDisabled]}>
+              {exitCountdown > 0 ? `Exit Arena (${exitCountdown})` : 'Exit Arena'}
+            </Text>
           </TouchableOpacity>
         ) : (
           <View style={[
@@ -1262,6 +1310,16 @@ const addNeonIntensity = (color: string) => {
           </View>
         )}
       </View>
+
+      {/* Custom Modal */}
+      <CustomModal
+        visible={isVisible}
+        title={modalOptions.title}
+        message={modalOptions.message}
+        buttons={modalOptions.buttons}
+        onBackdropPress={hideModal}
+        showCloseButton={modalOptions.showCloseButton}
+      />
       </View>
   );
 }
@@ -1566,6 +1624,13 @@ attackButtonContainer: {
     fontWeight: 'bold',
     textAlign: 'center',
     letterSpacing: 0.5,
+  },
+  exitButtonDisabled: {
+    backgroundColor: '#444',
+    opacity: 0.6,
+  },
+  exitButtonTextDisabled: {
+    color: '#999',
   },
   joinButton: {
     backgroundColor: '#4CAF50',
