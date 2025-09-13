@@ -1,72 +1,54 @@
 import os
 from flask import Flask, jsonify, request
-from supabase import create_client, Client
 from dotenv import load_dotenv
+from database import get_supabase_client
+
+# Import blueprints
+from routes.auth import auth_bp
+from routes.profile import profile_bp
+from routes.locations import locations_bp
+from routes.battles import battles_bp
+from routes.teams import teams_bp
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 
-# Initialize Supabase client
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_KEY")
+# Get Supabase client from shared database module
+supabase = get_supabase_client()
 
-if supabase_url and supabase_key:
-    supabase: Client = create_client(supabase_url, supabase_key)
-else:
-    supabase = None
-    print("Warning: Supabase credentials not found. Please set SUPABASE_URL and SUPABASE_KEY in .env file")
+# Register blueprints with /api prefix
+app.register_blueprint(auth_bp, url_prefix='/api/auth')
+app.register_blueprint(profile_bp, url_prefix='/api/profile')
+app.register_blueprint(locations_bp, url_prefix='/api/locations')
+app.register_blueprint(battles_bp, url_prefix='/api/battles')
+app.register_blueprint(teams_bp, url_prefix='/api/teams')
 
 @app.route('/')
 def hello_world():
     return jsonify({
-        'message': 'Hello from CMUGo backend!',
-        'status': 'success'
+        'message': 'CMUGo API Server',
+        'status': 'success',
+        'endpoints': {
+            'auth': '/api/auth',
+            'profile': '/api/profile',
+            'locations': '/api/locations',
+            'battles': '/api/battles',
+            'teams': '/api/teams'
+        }
     })
 
 @app.route('/health')
 def health_check():
+    """Health check endpoint"""
     supabase_status = "connected" if supabase else "not configured"
     return jsonify({
         'status': 'healthy',
         'service': 'cmugo-backend',
-        'supabase': supabase_status
+        'supabase': supabase_status,
+        'api_version': '1.0.0'
     })
-
-@app.route('/users', methods=['GET'])
-def get_users():
-    """Get all users from Supabase"""
-    if not supabase:
-        return jsonify({'error': 'Supabase not configured'}), 500
-    
-    try:
-        response = supabase.table('users').select('*').execute()
-        return jsonify({
-            'users': response.data,
-            'count': len(response.data)
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/users', methods=['POST'])
-def create_user():
-    """Create a new user in Supabase"""
-    if not supabase:
-        return jsonify({'error': 'Supabase not configured'}), 500
-    
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-        
-        response = supabase.table('users').insert(data).execute()
-        return jsonify({
-            'message': 'User created successfully',
-            'user': response.data[0] if response.data else None
-        }), 201
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/test-supabase')
 def test_supabase():
