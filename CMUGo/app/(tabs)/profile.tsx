@@ -339,9 +339,9 @@ export default function ProfileScreen() {
           </View>
           
           <Text style={styles.username}>{profileData.username}</Text>
-          <Text style={styles.joinDate}>
+          {/* <Text style={styles.joinDate}>
             Joined: {profileData.join_date ? new Date(profileData.join_date).toLocaleDateString() : 'Unknown'}
-          </Text>
+          </Text> */}
         </View>
 
         {/* Team Info */}

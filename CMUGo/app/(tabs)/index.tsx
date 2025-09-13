@@ -238,7 +238,7 @@ export default function TabTwoScreen() {
     if (withinRadius) {
       Alert.alert(
         locationData.name,
-        `Owned by: ${locationData.owner_team_name}\nOwners: ${locationData.owner_count}\n\n✅ You are within battle range!`,
+        `Owned by: ${locationData.owner_team_name}\nOwners: ${locationData.owner_count}\n\nYou are within battle range!`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Battle', style: 'default', onPress: () => handleBattleStart(locationData) },
@@ -255,7 +255,7 @@ export default function TabTwoScreen() {
       
       Alert.alert(
         locationData.name,
-        `Owned by: ${locationData.owner_team_name}\nOwners: ${locationData.owner_count}\n\n❌ You are ${Math.round(distance)}m away. Get within ${BATTLE_RADIUS}m to battle!`,
+        `Owned by: ${locationData.owner_team_name}\nOwners: ${locationData.owner_count}\n\nYou are ${Math.round(distance)}m away. Get within ${BATTLE_RADIUS}m to battle!`,
         [{ text: 'OK', style: 'default' }]
       );
     }
@@ -448,9 +448,9 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   customMarker: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: 3,
     borderColor: '#fff',
     shadowColor: '#000',
@@ -467,9 +467,9 @@ const styles = StyleSheet.create({
     borderWidth: 4,
   },
   userLocationMarker: {
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 3,
     borderColor: '#007AFF',
     shadowColor: '#000',
