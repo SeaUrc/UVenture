@@ -402,7 +402,7 @@ export default function TabTwoScreen() {
             />
           </View>
         </TouchableOpacity>
-      </View>
+    </View>
     </ThemedView>
   );
 }

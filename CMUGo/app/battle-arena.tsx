@@ -232,47 +232,36 @@ const animateButtonMovement = () => {
   
   const newSparkles: Sparkle[] = [];
   
-  // Slower, more gradual color progression based on tap count
-  const getColorWave = (tapIndex: number) => {
-    const totalTaps = tapCount;
-    const waveColors = [
-      // Green phase (taps 0-9)
-      '#00FF00', '#32FF32', '#65FF65', '#7FFF00', '#9AFF9A',
-      '#ADFF2F', '#CCFF99', '#98FB98', '#90EE90', '#00FF7F',
-      // Yellow-Green phase (taps 10-19)
-      '#7FFF00', '#CCFF00', '#DFFF00', '#E6FF00', '#EEFF00',
-      '#F4FF00', '#FAFF00', '#FFFF00', '#FFFF32', '#FFFF65',
-      // Yellow phase (taps 20-29)
-      '#FFFF00', '#FFFA00', '#FFF500', '#FFF000', '#FFEB00',
-      '#FFE600', '#FFE100', '#FFDC00', '#FFD700', '#FFD200',
-      // Orange phase (taps 30-39)
-      '#FFCD00', '#FFC800', '#FFC300', '#FFBE00', '#FFB900',
-      '#FFB400', '#FFAF00', '#FFAA00', '#FFA500', '#FFA000',
-      // Red-Orange phase (taps 40-49)
-      '#FF9B00', '#FF9600', '#FF9100', '#FF8C00', '#FF8700',
-      '#FF8200', '#FF7D00', '#FF7800', '#FF7300', '#FF6E00',
-      // Red phase (taps 50+)
-      '#FF6900', '#FF6400', '#FF5F00', '#FF5A00', '#FF5500',
-      '#FF5000', '#FF4B00', '#FF4600', '#FF4100', '#FF3C00',
-      '#FF3700', '#FF3200', '#FF2D00', '#FF2800', '#FF2300',
-      '#FF1E00', '#FF1900', '#FF1400', '#FF0F00', '#FF0A00', '#FF0000'
+  // Realistic soldering spark colors - orange/red spectrum
+  const getRealisticSparkColor = () => {
+    const sparkColors = [
+      '#FF4500', // Orange red
+      '#FF6347', // Tomato
+      '#FF7F50', // Coral
+      '#FF8C00', // Dark orange
+      '#FFA500', // Orange
+      '#FFB347', // Peach
+      '#FF6B35', // Red orange
+      '#FF4500', // Orange red
+      '#FF2D00', // Red orange
+      '#FF1A00', // Bright red
+      '#FF0000', // Pure red
+      '#FF3300', // Bright red
     ];
     
-    // Make progression slower - divide by 2 to make it a bit faster than before
-    const slowedTapCount = Math.floor(totalTaps / 2);
-    const colorIndex = Math.min(slowedTapCount, waveColors.length - 1);
-    return waveColors[colorIndex];
+    return sparkColors[Math.floor(Math.random() * sparkColors.length)];
   };
   
-  for (let i = 0; i < count; i++) {
-    // Each sparkle gets the current wave color
-    const baseWaveColor = getColorWave(i);
-    const sparkleColor = addNeonIntensity(baseWaveColor);
+  // Create many more sparks
+  const sparkCount = Math.min(5 + Math.floor(tapCount * 2), 15);
+  
+  for (let i = 0; i < sparkCount; i++) {
+    const sparkleColor = getRealisticSparkColor();
     
     const sparkle: Sparkle = {
       id: sparkleIdCounter + i,
-      x: new Animated.Value(0), // Start at center (button position)
-      y: new Animated.Value(0), // Start at center (button position)
+      x: new Animated.Value(0),
+      y: new Animated.Value(0),
       opacity: new Animated.Value(1),
       scale: new Animated.Value(0.1),
       color: sparkleColor,
@@ -280,99 +269,105 @@ const animateButtonMovement = () => {
     
     newSparkles.push(sparkle);
     
-    // Calculate direction - sparks expand outward in all directions from center
-    const angle = (Math.PI * 2 * i) / count; // Evenly distribute around circle
-    const randomAngleVariation = (Math.random() - 0.5) * 0.3; // Small random variation
-    const finalAngle = angle + randomAngleVariation;
+    // Create water spray pattern with more horizontal momentum
+    const angle = (Math.PI * 2 * Math.random());
+    const angleVariation = (Math.random() - 0.5) * 0.6; // Increased variation
+    const finalAngle = angle + angleVariation;
     
-    // Distance sparks travel outward from button center
-    const baseDistance = 60 + Math.random() * 80; // 60-140px from center
-    const targetX = Math.cos(finalAngle) * baseDistance;
-    const targetY = Math.sin(finalAngle) * baseDistance;
+    // Increased horizontal distance, still more vertical
+    const baseDistance = 40 + Math.random() * 100; // 40-140px from center
+    const targetX = Math.cos(finalAngle) * baseDistance * 0.6; // Increased horizontal (was 0.3)
+    const targetY = Math.sin(finalAngle) * baseDistance * 1.2; // Slightly less vertical (was 1.5)
     
-    // Gravity effect - sparks fall down after expanding
-    const finalY = targetY + 40 + Math.random() * 60;
+    // Water spray fall
+    const gravityY = targetY + 50 + Math.random() * 80;
     
     Animated.parallel([
-      // X movement - expand outward from center
+      // X movement - increased horizontal momentum
       Animated.sequence([
-        // Fast initial burst outward
+        // More horizontal drift
         Animated.timing(sparkle.x, {
-          toValue: targetX * 0.6,
-          duration: 120,
+          toValue: targetX * 0.7, // Increased from 0.5
+          duration: 80, // Faster initial movement
           useNativeDriver: true,
         }),
-        // Continue expanding
+        // Continue with more horizontal momentum
         Animated.timing(sparkle.x, {
           toValue: targetX,
-          duration: 180,
+          duration: 120, // Faster
           useNativeDriver: true,
         }),
-        // Slight drift
+        // Final drift with more horizontal spread
         Animated.timing(sparkle.x, {
-          toValue: targetX + (Math.random() - 0.5) * 20,
-          duration: 400,
+          toValue: targetX + (Math.random() - 0.5) * 20, // Increased from 10
+          duration: 350, // Faster
           useNativeDriver: true,
         }),
       ]),
-      // Y movement - expand outward then fall with gravity
+      // Y movement - water spray pattern
       Animated.sequence([
-        // Fast initial burst outward
+        // Initial upward burst (like water spray)
         Animated.timing(sparkle.y, {
-          toValue: targetY * 0.6,
-          duration: 120,
+          toValue: targetY * 0.4,
+          duration: 80,
           useNativeDriver: true,
         }),
-        // Continue expanding
+        // Peak height
         Animated.timing(sparkle.y, {
-          toValue: targetY,
-          duration: 180,
+          toValue: targetY * 0.8,
+          duration: 120,
           useNativeDriver: true,
         }),
         // Gravity fall
         Animated.timing(sparkle.y, {
-          toValue: finalY,
+          toValue: gravityY,
           duration: 500,
           useNativeDriver: true,
         }),
       ]),
-      // Scale animation - sparks grow then shrink
+      // Scale animation - smaller sparks with aura effect
       Animated.sequence([
         Animated.spring(sparkle.scale, {
-          toValue: 2.5 + Math.random() * 1.5,
-          tension: 300,
+          toValue: 0.6 + Math.random() * 0.3,
+          tension: 400,
           friction: 4,
           useNativeDriver: true,
         }),
         Animated.timing(sparkle.scale, {
           toValue: 0,
-          duration: 600,
+          duration: 400,
           useNativeDriver: true,
         }),
       ]),
-      // Neon flicker effect
+      // Opacity - bright flash with aura effect
       Animated.sequence([
-        Animated.delay(30),
+        // Initial bright flash
+        Animated.timing(sparkle.opacity, {
+          toValue: 1,
+          duration: 30,
+          useNativeDriver: true,
+        }),
+        // Flicker effect with aura
         Animated.loop(
           Animated.sequence([
             Animated.timing(sparkle.opacity, {
-              toValue: 0.3,
-              duration: 50,
+              toValue: 0.4,
+              duration: 20,
               useNativeDriver: true,
             }),
             Animated.timing(sparkle.opacity, {
               toValue: 1,
-              duration: 50,
+              duration: 25,
               useNativeDriver: true,
             }),
             Animated.timing(sparkle.opacity, {
-              toValue: 0.5,
-              duration: 40,
+              toValue: 0.6,
+              duration: 15,
               useNativeDriver: true,
             }),
             Animated.timing(sparkle.opacity, {
-              toValue: 1,
-              duration: 40,
+              toValue: 0.9,
+              duration: 20,
               useNativeDriver: true,
             }),
           ]),
@@ -381,50 +376,42 @@ const animateButtonMovement = () => {
         // Final fade
         Animated.timing(sparkle.opacity, {
           toValue: 0,
-          duration: 300,
+          duration: 250,
           useNativeDriver: true,
         }),
       ]),
     ]).start();
   }
   
-  setSparkleIdCounter(prev => prev + count);
+  setSparkleIdCounter(prev => prev + sparkCount);
   setSparkles(prev => [...prev, ...newSparkles]);
   
   setTimeout(() => {
     setSparkles(prev => 
       prev.filter(s => !newSparkles.some(ns => ns.id === s.id))
     );
-  }, 1500);
+  }, 1000);
 };
 
+// Update button color progression
 const getButtonColor = () => {
   const colors = [
-    // Green phase
-    '#00FF00', '#32FF32', '#65FF65', '#7FFF00', '#9AFF9A',
-    '#ADFF2F', '#CCFF99', '#98FB98', '#90EE90', '#00FF7F',
-    // Yellow-Green phase
-    '#7FFF00', '#CCFF00', '#DFFF00', '#E6FF00', '#EEFF00',
-    '#F4FF00', '#FAFF00', '#FFFF00', '#FFFF32', '#FFFF65',
-    // Yellow phase
+    // Yellow phase (taps 0-9)
     '#FFFF00', '#FFFA00', '#FFF500', '#FFF000', '#FFEB00',
     '#FFE600', '#FFE100', '#FFDC00', '#FFD700', '#FFD200',
-    // Orange phase
+    // Orange phase (taps 10-19)
     '#FFCD00', '#FFC800', '#FFC300', '#FFBE00', '#FFB900',
     '#FFB400', '#FFAF00', '#FFAA00', '#FFA500', '#FFA000',
-    // Red-Orange phase
+    // Red phase (taps 20+)
     '#FF9B00', '#FF9600', '#FF9100', '#FF8C00', '#FF8700',
     '#FF8200', '#FF7D00', '#FF7800', '#FF7300', '#FF6E00',
-    // Red phase
     '#FF6900', '#FF6400', '#FF5F00', '#FF5A00', '#FF5500',
     '#FF5000', '#FF4B00', '#FF4600', '#FF4100', '#FF3C00',
     '#FF3700', '#FF3200', '#FF2D00', '#FF2800', '#FF2300',
     '#FF1E00', '#FF1900', '#FF1400', '#FF0F00', '#FF0A00', '#FF0000'
   ];
   
-  // Same slower progression - divide by 2 for slightly faster progression
-  const slowedTapCount = Math.floor(tapCount / 2);
-  const colorIndex = Math.min(slowedTapCount, colors.length - 1);
+  const colorIndex = Math.min(tapCount, colors.length - 1);
   return colors[colorIndex];
 };
 
@@ -913,7 +900,7 @@ const addNeonIntensity = (color: string) => {
       if (battleResponse.message === 'win' && result === 'win') {
         await becomeOwner(locationData?.name || 'the location');
           setTimeout(() => {
-            router.replace('/(tabs)');
+            router.back();
           }, 1500);
       } else if (result === 'win') {
         Alert.alert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
@@ -921,7 +908,7 @@ const addNeonIntensity = (color: string) => {
             text: 'OK',
             onPress: () => {
               setTimeout(() => {
-                router.replace('/(tabs)');
+                router.back();
               }, 1000);
             }
           }
@@ -935,7 +922,7 @@ const addNeonIntensity = (color: string) => {
               text: 'OK',
               onPress: () => {
                 setTimeout(() => {
-                  router.replace('/(tabs)');
+                  router.back();
                 }, 1000);
               }
             }
@@ -977,8 +964,8 @@ const addNeonIntensity = (color: string) => {
         }),
       });
 
-      console.log('Become owner response status:', response.status);
-
+      // console.log('Become owner response status:', response.status);
+      // console.log('Res', response.json());
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Become owner error response:', errorText);
@@ -1196,41 +1183,56 @@ const addNeonIntensity = (color: string) => {
 ]}>
         
     
-            {/* Sparkles with different shapes */}
+            {/* Sparkles with realistic soldering effects and aura */}
             {sparkles.map((sparkle, index) => {
-                // Create different spark shapes with random rotation
-                const sparkType = index % 4;
-                const randomRotation = Math.random() * 360; // Random rotation between 0-360 degrees
-                
-                return (
-                    <Animated.View
-                    key={sparkle.id}
+              const sparkType = index % 5;
+              const randomRotation = Math.random() * 360;
+              
+              return (
+                <Animated.View
+                  key={sparkle.id}
+                  style={[
+                    sparkType === 0 ? styles.sparkDot : 
+                    sparkType === 1 ? styles.sparkLine : 
+                    sparkType === 2 ? styles.sparkSlash : 
+                    sparkType === 3 ? styles.sparkBackslash : 
+                    styles.sparkCross,
+                    {
+                      backgroundColor: sparkle.color,
+                      shadowColor: sparkle.color,
+                      shadowOpacity: 1, // Full opacity for aura effect
+                      shadowRadius: 20, // Large aura radius
+                      shadowOffset: { width: 0, height: 0 },
+                      elevation: 30, // High elevation for Android
+                      borderWidth: 0.5,
+                      borderColor: sparkle.color,
+                      transform: [
+                        { translateX: sparkle.x },
+                        { translateY: sparkle.y },
+                        { scale: sparkle.scale },
+                        { rotate: `${randomRotation}deg` },
+                      ],
+                      opacity: sparkle.opacity,
+                    },
+                  ]}
+                >
+                  {/* Inner glow effect for aura */}
+                  <Animated.View
                     style={[
-                        sparkType === 0 ? styles.sparkLine : // Horizontal line
-                        sparkType === 1 ? styles.sparkSlash : // Diagonal slash
-                        sparkType === 2 ? styles.sparkBackslash : // Opposite diagonal
-                        styles.sparkCross, // Cross/plus shape
-                        {
+                      styles.sparkAura,
+                      {
                         backgroundColor: sparkle.color,
-                        shadowColor: sparkle.color,
-                        shadowOpacity: 1,
-                        shadowRadius: 20,
-                        shadowOffset: { width: 0, height: 0 },
-                        elevation: 30,
-                        borderWidth: 1,
-                        borderColor: sparkle.color,
-                        transform: [
-                            { translateX: sparkle.x },
-                            { translateY: sparkle.y },
-                            { scale: sparkle.scale },
-                            { rotate: `${randomRotation}deg` }, // Add random rotation to each spark
-                        ],
-                        opacity: sparkle.opacity,
-                        },
+                        opacity: sparkle.opacity.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 0.3],
+                        }),
+                        transform: [{ scale: sparkle.scale }],
+                      },
                     ]}
-                    />
-                );
-                })}
+                  />
+                </Animated.View>
+              );
+            })}
             
             {/* Attack Button */}
             <Animated.View style={animatedButtonStyle}>
@@ -1691,5 +1693,58 @@ innerGlowCross: {
   top: 0.5,
   left: 2,
   borderRadius: 1,
+},
+// Soldering-style spark shapes
+sparkDot: {
+  position: 'absolute',
+  width: 2,
+  height: 2,
+  zIndex: 1000,
+  borderRadius: 1,
+},
+sparkLine: {
+  position: 'absolute',
+  width: 6,
+  height: 1,
+  zIndex: 1000,
+  borderRadius: 0.5,
+},
+sparkSlash: {
+  position: 'absolute',
+  width: 5,
+  height: 1,
+  zIndex: 1000,
+  borderRadius: 0.5,
+},
+sparkBackslash: {
+  position: 'absolute',
+  width: 5,
+  height: 1,
+  zIndex: 1000,
+  borderRadius: 0.5,
+},
+sparkCross: {
+  position: 'absolute',
+  width: 4,
+  height: 1,
+  zIndex: 1000,
+  borderRadius: 0.5,
+},
+sparkStar: {
+  position: 'absolute',
+  width: 6,
+  height: 6,
+  zIndex: 1000,
+  borderRadius: 0,
+},
+// Aura effect for sparks
+sparkAura: {
+  position: 'absolute',
+  width: 8,
+  height: 8,
+  borderRadius: 4,
+  top: -3,
+  left: -3,
+  zIndex: 999,
 },
 });
