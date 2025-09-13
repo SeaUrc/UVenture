@@ -1,136 +1,425 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'expo-router';
+import { StyleSheet, View, Platform, Alert, Image, TouchableOpacity } from 'react-native';
+import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useNavigation } from '@react-navigation/native';
 import { Fonts } from '@/constants/theme';
 
-type Team = {
+type CustomMarker = {
   id: number;
-  name: string;
-  points: number;
-  rank: number;
-  color: string;
-  members: number;
+  latitude: number;
+  longitude: number;
+  title: string;
+  description: string;
+  occupant: string;
+  image?: any; // For custom marker image
 };
 
-// Dummy data for the leaderboard
-const dummyTeams: Team[] = [
-  { id: 1, name: 'MCS', points: 2450, rank: 1, color: '#FF6B6B', members: 12 },
-  { id: 2, name: 'SCS', points: 2180, rank: 2, color: '#4ECDC4', members: 15 },
-  { id: 3, name: 'Tepper', points: 1950, rank: 3, color: '#45B7D1', members: 8 },
-  { id: 4, name: 'Dietrich', points: 1820, rank: 4, color: '#96CEB4', members: 10 },
-  { id: 5, name: 'Heinz', points: 1650, rank: 5, color: '#FFEAA7', members: 7 },
-  { id: 6, name: 'CFA', points: 1420, rank: 6, color: '#DDA0DD', members: 9 },
-  { id: 7, name: 'Engineering', points: 1280, rank: 7, color: '#98D8C8', members: 11 },
-  { id: 8, name: 'Mellon', points: 1100, rank: 8, color: '#F7DC6F', members: 6 },
+const initMarkers: CustomMarker[] = [
+  {
+    id: 1,
+    latitude: 40.4433,
+    longitude: -79.9436,
+    title: 'Purnell Center',
+    description: 'Arena at the Purnell Center',
+    occupant: 'MCS',
+    image: require('@/assets/images/icon.png'), // Using your app icon
+  },
+  {
+    id: 2,
+    latitude: 40.4440,
+    longitude: -79.9420,
+    title: 'ABP',
+    description: 'Another spot!',
+    occupant: 'SCS',
+    image: require('@/assets/images/react-logo.png'), // Using React logo
+  },
+  {
+    id: 3,
+    latitude: 40.4433,
+    longitude: -79.9444,
+    title: 'Gates Center',
+    description: 'Arena at the Gates Center',
+    occupant: 'SCS',
+    image: require('@/assets/images/android-icon-foreground.png'), // Using your app icon
+  }
 ];
 
-export default function LeaderboardScreen() {
-  const [teams, setTeams] = useState<Team[]>(dummyTeams);
-  const [isLoading, setIsLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+// Battle radius in meters
+const BATTLE_RADIUS = 50; // 50 eters
+const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
 
-  // Sample fetch function for leaderboard data
-  const fetchLeaderboard = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Replace with your actual API endpoint
-      const response = await fetch('https://your-api-endpoint.com/leaderboard');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch leaderboard');
+export default function TabTwoScreen() {
+  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigation = useNavigation();
+  const router = useRouter();
+
+  // Example markers (can be fetched from API or state)
+  const [markers, setMarkers] = useState<CustomMarker[]>(initMarkers);
+  
+  // New state for map following
+  const [isFollowingUser, setIsFollowingUser] = useState(true);
+  const mapRef = useRef<MapView>(null);
+  const isAnimatingRef = useRef(false); // Track if we're programmatically animating
+
+
+  useEffect(() => {
+    console.log('Test markers');
+    fetch(databaseUrl)
+      .then(response => response.json())
+      .then(data => {
+        console.log('data', data);
+      })
+      .catch(error => {
+        console.error('Error fetching markers:', error);
+      });
+  }, []);
+
+  const handleBattleStart = (marker: CustomMarker) => {
+  router.push({
+    pathname: '/battle',
+    params: {
+      id: marker.id.toString(),
+      latitude: marker.latitude.toString(),
+      longitude: marker.longitude.toString(),
+      title: marker.title,
+      description: marker.description,
+    },
+  });
+};
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setErrorMsg('Permission to access location was denied');
+          setIsLoading(false);
+          return;
+        }
+
+        const currentLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        
+        setLocation(currentLocation);
+        setErrorMsg(null);
+      } catch (error) {
+        setErrorMsg('Error getting location: ' + (error as Error).message);
+      } finally {
+        setIsLoading(false);
       }
-      
-      const data = await response.json();
-      
-      // Transform API data to match our Team type
-      const leaderboardData: Team[] = data.teams.map((team: any, index: number) => ({
-        id: team.id,
-        name: team.name,
-        points: team.points,
-        rank: index + 1,
-        color: team.color || '#007AFF',
-        members: team.member_count || 0,
-      }));
-      
-      setTeams(leaderboardData);
-    } catch (error) {
-      console.error('Error fetching leaderboard:', error);
-      // Keep dummy data on error
-    } finally {
-      setIsLoading(false);
+    })();
+  }, []);
+
+  // Watch user location when following
+  useEffect(() => {
+    let locationSubscription: Location.LocationSubscription | null = null;
+
+    if (isFollowingUser && location) {
+      // Start watching location changes
+      Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 1000, // Update every second
+          distanceInterval: 1, // Update every meter
+        },
+        (newLocation) => {
+          setLocation(newLocation);
+          // Set animation flag for programmatic movement
+          isAnimatingRef.current = true;
+          
+          // Animate to new location
+          mapRef.current?.animateToRegion({
+            latitude: newLocation.coords.latitude,
+            longitude: newLocation.coords.longitude,
+            latitudeDelta: 0.001,
+            longitudeDelta: 0.001,
+          }, 1000);
+          
+          // Reset animation flag after animation completes
+          setTimeout(() => {
+            isAnimatingRef.current = false;
+          }, 1100);
+        }
+      ).then(subscription => {
+        locationSubscription = subscription;
+      });
+    }
+
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
+  }, [isFollowingUser]);
+
+  // Handle map region change (when user manually moves map)
+  const handleRegionChange = () => {
+    // Only set to false if it's not a programmatic animation
+    if (isFollowingUser && !isAnimatingRef.current) {
+      setIsFollowingUser(false);
     }
   };
 
-  // Pull to refresh function
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchLeaderboard();
-    setRefreshing(false);
+  // Toggle follow user mode
+  const toggleFollowUser = () => {
+    if (!isFollowingUser && location) {
+      // Set following state immediately
+      setIsFollowingUser(true);
+      
+      // Set animation flag
+      isAnimatingRef.current = true;
+      
+      // Recenter map on user
+      mapRef.current?.animateToRegion({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.001,
+        longitudeDelta: 0.001,
+      }, 1000);
+      
+      // Reset animation flag after animation completes
+      setTimeout(() => {
+        isAnimatingRef.current = false;
+      }, 1100); // Slightly longer than animation duration
+    } else {
+      setIsFollowingUser(!isFollowingUser);
+    }
   };
 
-  // Fetch data on component mount
-  useEffect(() => {
-    fetchLeaderboard();
-  }, []);
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-  const renderTeamItem = (team: Team) => (
-    <TouchableOpacity key={team.id} style={styles.teamItem}>
-      <View style={styles.rankContainer}>
-        <View style={[styles.rankBadge, { backgroundColor: team.color }]}>
-          <ThemedText style={styles.rankText}>#{team.rank}</ThemedText>
-        </View>
-      </View>
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // Distance in meters
+  };
+
+  // Check if user is within battle radius of a marker
+  const isWithinBattleRadius = (marker: CustomMarker): boolean => {
+    if (!location) return false;
+    
+    const distance = calculateDistance(
+      location.coords.latitude,
+      location.coords.longitude,
+      marker.latitude,
+      marker.longitude
+    );
+    
+    return distance <= BATTLE_RADIUS;
+  };
+
+  const handleMarkerPress = (marker: CustomMarker) => {
+    const withinRadius = isWithinBattleRadius(marker);
+    
+    if (withinRadius) {
+      // User is within range - show battle option
+      Alert.alert(
+        marker.title,
+        `${marker.description}\nOccupant: ${marker.occupant}\n\n✅ You are within battle range!`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Battle',
+            style: 'default',
+            onPress: () => handleBattleStart(marker),
+          },
+        ],
+        { cancelable: true }
+      );
+    } else {
+      // User is not within range
+      const distance = calculateDistance(
+        location!.coords.latitude,
+        location!.coords.longitude,
+        marker.latitude,
+        marker.longitude
+      );
       
-      <View style={styles.teamInfo}>
-        <ThemedText style={[styles.teamName, { fontFamily: Fonts.rounded }]}>
-          {team.name}
+      Alert.alert(
+        marker.title,
+        `${marker.description}\nOccupant: ${marker.occupant}\n\n❌ You are ${Math.round(distance)}m away. Get within ${BATTLE_RADIUS}m to battle!`,
+        [
+          {
+            text: 'OK',
+            style: 'default',
+          },
+        ]
+      );
+    }
+  };
+
+  const handleBattle = (marker: CustomMarker) => {
+    // Dummy battle function
+    Alert.alert(
+      'Battle Started!',
+      `You are now battling at ${marker.title}!\n\nOpponent: ${marker.occupant}\n\nThis is a dummy battle function.`,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            // You can add more battle logic here
+            console.log(`Battle completed at ${marker.title}`);
+          },
+        },
+      ]
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <ThemedView style={styles.container}>
+        <ThemedText style={[styles.title, { fontFamily: Fonts.rounded }]}>
+          Loading Map...
         </ThemedText>
-        <ThemedText style={styles.memberCount}>
-          {team.members} members
+      </ThemedView>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <ThemedView style={styles.container}>
+        <ThemedText style={[styles.title, { fontFamily: Fonts.rounded }]}>
+          Explore
         </ThemedText>
-      </View>
-      
-      <View style={styles.pointsContainer}>
-        <ThemedText style={[styles.pointsText, { fontFamily: Fonts.rounded }]}>
-          {team.points.toLocaleString()}
+        <ThemedText style={styles.errorText}>{errorMsg}</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (!location) {
+    return (
+      <ThemedView style={styles.container}>
+        <ThemedText style={[styles.title, { fontFamily: Fonts.rounded }]}>
+          Explore
         </ThemedText>
-        <ThemedText style={styles.pointsLabel}>points</ThemedText>
-      </View>
-    </TouchableOpacity>
-  );
+        <ThemedText style={styles.errorText}>Unable to get your location</ThemedText>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText 
-          type="defaultSemiBold" 
-          style={[styles.title, { fontFamily: Fonts.rounded }]}
+      <ThemedText style={[styles.title, { fontFamily: Fonts.rounded }]}>
+        Explore
+      </ThemedText>
+      <View style={styles.mapContainer}>
+        <MapView
+          ref={mapRef}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          style={styles.map}
+          initialRegion={{
+            latitude: location?.coords.latitude || 40.4433,
+            longitude: location?.coords.longitude || -79.9436,
+            latitudeDelta: 0.001,
+            longitudeDelta: 0.001,
+          }}
+          showsUserLocation={true}
+          showsMyLocationButton={false} // Hide default button since we have custom one
+          onRegionChangeComplete={handleRegionChange}
         >
-          Leaderboard
-        </ThemedText>
-        <ThemedText style={styles.subtitle}>
-          Team Rankings
-        </ThemedText>
-      </View>
+          {/* User location marker with custom image */}
+          {location && (
+            <Marker
+              coordinate={{
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+              }}
+              title="You are here"
+              description="Your current location"
+            >
+              <View style={styles.userLocationMarker}>
+                <Image 
+                  source={require('@/assets/images/icon.png')} 
+                  style={styles.markerImage}
+                  resizeMode="cover"
+                />
+              </View>
+            </Marker>
+          )}
 
-      <ScrollView 
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        <View style={styles.leaderboardContainer}>
-          {teams.map(renderTeamItem)}
-        </View>
-        
-        <View style={styles.footer}>
-          <ThemedText style={styles.footerText}>
-            Pull down to refresh
-          </ThemedText>
-        </View>
-      </ScrollView>
+          {/* Custom markers with images and battle radius circles */}
+          {markers.map(marker => {
+            const withinRadius = isWithinBattleRadius(marker);
+            
+            return (
+              <React.Fragment key={marker.id}>
+                {/* Battle radius circle - only show when user is within range */}
+                {withinRadius && (
+                  <Circle
+                    center={{
+                      latitude: marker.latitude,
+                      longitude: marker.longitude,
+                    }}
+                    radius={BATTLE_RADIUS}
+                    strokeColor="#00FF00"
+                    fillColor="rgba(0, 255, 0, 0.1)"
+                    strokeWidth={2}
+                  />
+                )}
+                
+                {/* Marker */}
+                <Marker
+                  coordinate={{
+                    latitude: marker.latitude,
+                    longitude: marker.longitude,
+                  }}
+                  title={marker.title + ' | ' + marker.occupant}
+                  onPress={() => handleMarkerPress(marker)}
+                >
+                  <View style={[
+                    styles.customMarker,
+                    withinRadius && styles.markerInRange
+                  ]}>
+                    <Image 
+                      source={marker.image} 
+                      style={styles.markerImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                </Marker>
+              </React.Fragment>
+            );
+          })}
+        </MapView>
+
+        {/* Custom follow user button */}
+        <TouchableOpacity
+          style={[
+            styles.followButton,
+            isFollowingUser && styles.followButtonActive
+          ]}
+          onPress={toggleFollowUser}
+        >
+          <View style={styles.followButtonIcon}>
+            <Image 
+              source={require('@/assets/images/favicon.png')} 
+              style={[
+                styles.followButtonImage,
+                { tintColor: isFollowingUser ? '#fff' : '#007AFF' }
+              ]}
+              resizeMode="contain"
+            />
+          </View>
+        </TouchableOpacity>
+      </View>
     </ThemedView>
   );
 }
@@ -141,86 +430,101 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: 20,
   },
-  header: {
+  title: {
+    fontFamily: Fonts.rounded,
+    fontSize: 24,
+    fontWeight: 'bold',
     marginBottom: 20,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    lineHeight: 36, // Add proper line height
+  mapContainer: {
+    flex: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginBottom: 20,
   },
-  subtitle: {
-    fontSize: 16,
-    opacity: 0.7,
-  },
-  scrollView: {
+  map: {
     flex: 1,
   },
-  leaderboardContainer: {
-    gap: 12,
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+    marginTop: 20,
   },
-  teamItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    padding: 16,
+  customMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: '#fff',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    overflow: 'hidden',
   },
-  rankContainer: {
-    marginRight: 16,
+  markerInRange: {
+    borderColor: '#00FF00', // Green border when in range
+    borderWidth: 4,
   },
-  rankBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  userLocationMarker: {
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
+    borderWidth: 3,
+    borderColor: '#007AFF',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    overflow: 'hidden',
+  },
+  markerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  
+  // New styles for follow button
+  followButton: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+  },
+  followButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#0056CC',
+  },
+  followButtonIcon: {
+    width: 30,
+    height: 30,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  rankText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  teamInfo: {
-    flex: 1,
-  },
-  teamName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  memberCount: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  pointsContainer: {
-    alignItems: 'flex-end',
-  },
-  pointsText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#007AFF',
-  },
-  pointsLabel: {
-    fontSize: 12,
-    opacity: 0.7,
-    marginTop: 2,
-  },
-  footer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  footerText: {
-    fontSize: 14,
-    opacity: 0.5,
+  followButtonImage: {
+    width: 20,
+    height: 20,
   },
 });

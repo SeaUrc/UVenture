@@ -21,11 +21,26 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: Colors[colorScheme ?? 'light'].background,
         },
-      }}>
+      }}
+      >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'Explore',
+          tabBarIcon: ({ color, focused }) => (
+            <IconSymbol 
+              size={28} 
+              name="paperplane.fill" 
+              color={color}
+              style={{ opacity: focused ? 1 : 0.7 }}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="leaderboard"
+        options={{
+          title: 'Leaderboard',
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol 
               size={28} 
@@ -37,17 +52,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="profile"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color, focused }) => (
-            <IconSymbol 
-              size={28} 
-              name="paperplane.fill" 
+          title: 'Profile',
+          tabBarIcon: ({color, focused}) => (
+            <IconSymbol
+              size={28}
+              name="popcorn.fill"
               color={color}
-              style={{ opacity: focused ? 1 : 0.7 }}
+              style={{opacity: focused ? 1 : 0.7}}
             />
-          ),
+          )
         }}
       />
     </Tabs>
