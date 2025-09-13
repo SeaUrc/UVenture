@@ -142,6 +142,8 @@ export default function LeaderboardScreen() {
 
       <ScrollView 
         style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -163,7 +165,7 @@ export default function LeaderboardScreen() {
         
         <View style={styles.footer}>
           <ThemedText style={styles.footerText}>
-            Pull down to refresh
+            End of Leaderboard
           </ThemedText>
         </View>
       </ScrollView>

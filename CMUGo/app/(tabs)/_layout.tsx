@@ -20,7 +20,13 @@ export default function TabLayout() {
         tabBarShowLabel: true,
         tabBarStyle: {
           backgroundColor: Colors[colorScheme ?? 'light'].background,
+          borderTopColor: Colors[colorScheme ?? 'light'].dim, // Set the upper border color
+          paddingTop: 8, // Add top padding to raise the border above the icons
+          elevation: 0, // Remove shadow on Android
+          shadowOpacity: 0, // Remove shadow on iOS
+          borderTopWidth: 0.2, // Keep the subtle border
         },
+
       }}
       >
       <Tabs.Screen
@@ -30,7 +36,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol 
               size={28} 
-              name="house.fill" 
+              name="trophy.fill" 
               color={color}
               style={{ opacity: focused ? 1 : 0.7 }}
             />
@@ -44,7 +50,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol 
               size={28} 
-              name="paperplane.fill" 
+              name="map.fill" 
               color={color}
               style={{ opacity: focused ? 1 : 0.7 }}
             />
@@ -58,7 +64,7 @@ export default function TabLayout() {
           tabBarIcon: ({color, focused}) => (
             <IconSymbol
               size={28}
-              name="popcorn.fill"
+              name="person.circle.fill"
               color={color}
               style={{opacity: focused ? 1 : 0.7}}
             />

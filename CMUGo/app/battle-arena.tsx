@@ -297,7 +297,8 @@ export default function BattleArenaScreen() {
       
       // Update local profile stats IMMEDIATELY after storing cooldown
       await updateLocalProfileStats(result);
-      
+      // console.log(id as string);
+      // console.log(battle)
       const response = await fetch(`${databaseUrl}/api/interactions/battle`, {
         method: 'POST',
         headers: {
@@ -485,9 +486,9 @@ export default function BattleArenaScreen() {
         {!battleStarted && !battleResult && (
           <View style={styles.startContainer}>
             <Text style={styles.instructions}>
-              Engage in combat with the defending champion!{'\n'}
-              Tap the Attack button repeatedly to deal damage.{'\n'}
-              Defeat your opponent to capture this location!
+              Battle with the defending champion!{'\n'}
+              Tap the Attack button to deal damage.{'\n'}
+              Defeat them to capture this location!
             </Text>
             <TouchableOpacity style={styles.startButton} onPress={startBattle}>
               <Text style={styles.startButtonText}>Begin Battle</Text>

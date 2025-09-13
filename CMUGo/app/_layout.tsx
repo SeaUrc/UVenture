@@ -8,8 +8,20 @@ export default function RootLayout() {
       <Stack>
         {/* Tabs navigator */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="battle" options={{ title: 'Battle Arena' }} />
-        <Stack.Screen name="battle-arena" options={{ title: 'Battle Arena' }} />
+        <Stack.Screen 
+          name="battle" 
+          options={{ 
+            headerShown: false,
+            presentation: 'modal'
+          }} 
+        />
+        <Stack.Screen 
+          name="battle-arena" 
+          options={{ 
+            headerShown: false,
+            presentation: 'modal'
+          }} 
+        />
       </Stack>
     </ProfileProvider>
   );
