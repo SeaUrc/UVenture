@@ -730,9 +730,6 @@ const addNeonIntensity = (color: string) => {
 
   // Attack button animation with sparkles
   const playAttackAnimation = () => {
-    // Haptic feedback
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     // Increment tap count
     const newTapCount = tapCount + 1;
     setTapCount(newTapCount);
@@ -817,7 +814,16 @@ const addNeonIntensity = (color: string) => {
   const playerAttack = () => {
     if (battleResult || !battleStarted) return;
 
-    // Play attack animation and haptic feedback
+    // Try multiple haptic approaches for rapid taps
+    // 1. Use selection feedback which is more responsive for rapid taps
+    Haptics.selectionAsync();
+    
+    // 2. Also try a light impact as backup
+    setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }, 5);
+
+    // Play attack animation
     playAttackAnimation();
 
     const userStrength = userProfile?.strength || 10;
@@ -1007,19 +1013,27 @@ const addNeonIntensity = (color: string) => {
       
       if (battleResponse.message === 'win' && result === 'win') {
         await becomeOwner(locationData?.name || 'the location');
+<<<<<<< HEAD
           setTimeout(() => {
             setInitialChampionProfile(null);
             router.back();
           }, 1500);
+=======
+        exitBattle();
+>>>>>>> 70910e264d34cb4e354ddc18cd03fcd3a77a7043
       } else if (result === 'win') {
         Alert.alert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
           {
             text: 'OK',
             onPress: () => {
+<<<<<<< HEAD
               setTimeout(() => {
                 setInitialChampionProfile(null);
                 router.back();
               }, 1000);
+=======
+              
+>>>>>>> 70910e264d34cb4e354ddc18cd03fcd3a77a7043
             }
           }
         ]);
@@ -1031,10 +1045,14 @@ const addNeonIntensity = (color: string) => {
             {
               text: 'OK',
               onPress: () => {
+<<<<<<< HEAD
                 setTimeout(() => {
                   setInitialChampionProfile(null);
                   router.back();
                 }, 1000);
+=======
+                
+>>>>>>> 70910e264d34cb4e354ddc18cd03fcd3a77a7043
               }
             }
           ]
