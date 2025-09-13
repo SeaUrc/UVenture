@@ -1,24 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ScrollView, RefreshControl } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ScrollView, RefreshControl, Modal } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 
 const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
 
 type ProfileData = {
   username: string;
-  team: string;
+  team: number;
   image: string;
   strength: number;
-  total_score: number;
-  battles_won: number;
-  battles_lost: number;
-  locations_owned: number;
-  locations_conquered: number;
-  current_streak: number;
+  wins: number;
+  losses: number;
+  defending: string[];
   best_streak: number;
-  rank: string;
-  join_date: string;
+  rank?: string;
+  join_date?: string;
 };
 
 type LocationData = {
@@ -39,6 +38,7 @@ type TeamStats = {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   
   // Auth state
   const [userToken, setUserToken] = useState<string | null>(null);
@@ -53,6 +53,8 @@ export default function ProfileScreen() {
   // UI state
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     const getAuthData = async () => {
@@ -75,14 +77,52 @@ export default function ProfileScreen() {
     }
   }, [userToken, userId]);
 
+  // Add focus listener to refresh profile when returning from battle
+  useEffect(() => {
+    const checkForUpdatedData = async () => {
+      try {
+        const updatedData = await AsyncStorage.getItem('updatedProfileData');
+        if (updatedData) {
+          const parsedData = JSON.parse(updatedData);
+          console.log('Found updated profile data from battle:', parsedData);
+          
+          // Use the updated data temporarily while we fetch fresh data
+          setProfileData(parsedData);
+          
+          // Clear the temporary data
+          await AsyncStorage.removeItem('updatedProfileData');
+          
+          // Fetch fresh data from server
+          setTimeout(async () => {
+            await fetchUserProfile();
+          }, 1000);
+        }
+      } catch (error) {
+        console.error('Error checking for updated profile data:', error);
+      }
+    };
+
+    // Check for updated data when component mounts
+    checkForUpdatedData();
+
+    // Set up focus listener for when returning from other screens
+    const unsubscribe = navigation?.addListener ? navigation.addListener('focus', () => {
+      console.log('Profile screen focused, checking for updates');
+      checkForUpdatedData();
+    }) : undefined;
+
+    return unsubscribe;
+  }, []);
+
   const loadProfileData = async () => {
     setLoading(true);
     try {
+      // Fetch user profile which now includes strength, wins, losses, and defending locations
+      await fetchUserProfile();
+      
+      // Fetch additional data in parallel
       await Promise.all([
-        fetchUserProfile(),
-        fetchUserStats(),
         fetchOwnedLocations(),
-        fetchDefendingLocations(),
         fetchTeamStats(),
       ]);
     } catch (error) {
@@ -116,11 +156,120 @@ export default function ProfileScreen() {
 
       if (response.ok) {
         const profileData = await response.json();
+        console.log('Profile data fetched from server:', profileData); // Debug log
         setProfileData(profileData);
+        
+        // Convert defending location names to LocationData format for consistency
+        if (profileData.defending) {
+          const defendingLocs = profileData.defending.map((name: string, index: number) => ({
+            id: index, // Use index as temporary ID
+            name: name,
+            owner_team_name: '', // We don't have this info from the new endpoint
+            owner_team_color: '', // We don't have this info from the new endpoint
+            strongest_owner_id: userId || 0,
+          }));
+          setDefendingLocations(defendingLocs);
+        }
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
     }
+  };
+
+  // Image picker functions
+  const pickImageFromLibrary = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setImageModalVisible(false);
+      await uploadProfilePicture(result.assets[0].uri);
+    }
+  };
+
+  const takePhoto = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission Required', 'Permission to access camera is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setImageModalVisible(false);
+      await uploadProfilePicture(result.assets[0].uri);
+    }
+  };
+
+  const uploadProfilePicture = async (imageUri: string) => {
+    if (!userToken) {
+      Alert.alert('Error', 'You must be logged in to upload a profile picture');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      // Convert image to base64
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remove the data:image/jpeg;base64, prefix
+          const base64Image = result.split(',')[1];
+          resolve(base64Image);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      const uploadResponse = await fetch(`${databaseUrl}/api/profile/set_picture`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`,
+        },
+        body: JSON.stringify({
+          image: base64Data,
+        }),
+      });
+
+      if (uploadResponse.ok) {
+        Alert.alert('Success!', 'Profile picture updated successfully!');
+        // Refresh profile data to show new image
+        await fetchUserProfile();
+      } else {
+        throw new Error('Failed to upload image');
+      }
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      Alert.alert('Error', 'Failed to upload profile picture. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const showImageOptions = () => {
+    setImageModalVisible(true);
   };
 
   // Fetch user battle statistics
@@ -190,6 +339,8 @@ export default function ProfileScreen() {
     if (!userToken || !profileData?.team) return;
 
     try {
+      console.log('Fetching team stats for team ID:', profileData.team); // Debug log
+      
       const response = await fetch(`${databaseUrl}/api/profile/get_team_stats`, {
         method: 'POST',
         headers: {
@@ -197,18 +348,28 @@ export default function ProfileScreen() {
           'Authorization': `Bearer ${userToken}`,
         },
         body: JSON.stringify({
-          team_name: profileData.team,
+          team_id: profileData.team, // Changed from team_name to team_id
         }),
       });
 
       if (response.ok) {
         const teamData = await response.json();
+        console.log('Team stats fetched:', teamData); // Debug log
         setTeamStats(teamData);
+      } else {
+        console.log('Team stats response not ok:', response.status);
       }
     } catch (error) {
       console.error('Error fetching team stats:', error);
     }
   };
+
+  // Update the useEffect to work with team ID
+  useEffect(() => {
+    if (profileData?.team && userToken) {
+      fetchTeamStats();
+    }
+  }, [profileData?.team, userToken]);
 
   const logout = async () => {
     Alert.alert(
@@ -244,8 +405,8 @@ export default function ProfileScreen() {
 
   const getWinRate = () => {
     if (!profileData) return 0;
-    const totalBattles = (profileData.battles_won || 0) + (profileData.battles_lost || 0);
-    return totalBattles > 0 ? Math.round(((profileData.battles_won || 0) / totalBattles) * 100) : 0;
+    const totalBattles = (profileData.wins || 0) + (profileData.losses || 0);
+    return totalBattles > 0 ? Math.round(((profileData.wins || 0) / totalBattles) * 100) : 0;
   };
 
   if (loading) {
@@ -280,14 +441,24 @@ export default function ProfileScreen() {
         {/* Profile Header */}
         <View style={styles.header}>
           <View style={styles.profileImageContainer}>
-            <Image 
-              source={
-                profileData.image 
-                  ? { uri: `data:image/png;base64,${profileData.image}` }
-                  : require('../../assets/images/icon.png')
-              } 
-              style={styles.profileImage} 
-            />
+            <TouchableOpacity onPress={showImageOptions} disabled={uploadingImage}>
+              <Image 
+                source={
+                  profileData.image 
+                    ? { uri: `data:image/png;base64,${profileData.image}` }
+                    : require('../../assets/images/icon.png')
+                } 
+                style={[styles.profileImage, uploadingImage && styles.profileImageUploading]} 
+              />
+              <View style={styles.cameraOverlay}>
+                <Text style={styles.cameraIcon}>📷</Text>
+              </View>
+              {uploadingImage && (
+                <View style={styles.uploadingOverlay}>
+                  <Text style={styles.uploadingText}>Uploading...</Text>
+                </View>
+              )}
+            </TouchableOpacity>
             <View style={[styles.rankBadge, { backgroundColor: getRankColor(profileData.rank) }]}>
               <Text style={styles.rankText}>{profileData.rank || 'Novice'}</Text>
             </View>
@@ -300,29 +471,53 @@ export default function ProfileScreen() {
         </View>
 
         {/* Team Info */}
-        {teamStats && (
+        {profileData?.team && (
           <View style={styles.teamContainer}>
             <Text style={styles.sectionTitle}>Team Affiliation</Text>
-            <View style={[styles.teamCard, { borderColor: teamStats.team_color }]}>
-              <View style={styles.teamHeader}>
-                <View style={[styles.teamColorDot, { backgroundColor: teamStats.team_color }]} />
-                <Text style={styles.teamName}>{teamStats.team_name}</Text>
+            {teamStats ? (
+              <View style={[styles.teamCard, { borderColor: teamStats.team_color || '#ccc' }]}>
+                <View style={styles.teamHeader}>
+                  <View style={[styles.teamColorDot, { backgroundColor: teamStats.team_color || '#ccc' }]} />
+                  <Text style={styles.teamName}>{teamStats.team_name}</Text>
+                </View>
+                <View style={styles.teamStatsRow}>
+                  <View style={styles.teamStat}>
+                    <Text style={styles.teamStatValue}>{teamStats.total_members || 0}</Text>
+                    <Text style={styles.teamStatLabel}>Members</Text>
+                  </View>
+                  <View style={styles.teamStat}>
+                    <Text style={styles.teamStatValue}>{teamStats.total_locations || 0}</Text>
+                    <Text style={styles.teamStatLabel}>Locations</Text>
+                  </View>
+                  <View style={styles.teamStat}>
+                    <Text style={styles.teamStatValue}>#{teamStats.team_rank || 'N/A'}</Text>
+                    <Text style={styles.teamStatLabel}>Rank</Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.teamStatsRow}>
-                <View style={styles.teamStat}>
-                  <Text style={styles.teamStatValue}>{teamStats.total_members}</Text>
-                  <Text style={styles.teamStatLabel}>Members</Text>
+            ) : (
+              // Fallback display when team stats aren't loaded yet
+              <View style={[styles.teamCard, { borderColor: '#ccc' }]}>
+                <View style={styles.teamHeader}>
+                  <View style={[styles.teamColorDot, { backgroundColor: '#ccc' }]} />
+                  <Text style={styles.teamName}>Team #{profileData.team}</Text>
                 </View>
-                <View style={styles.teamStat}>
-                  <Text style={styles.teamStatValue}>{teamStats.total_locations}</Text>
-                  <Text style={styles.teamStatLabel}>Locations</Text>
-                </View>
-                <View style={styles.teamStat}>
-                  <Text style={styles.teamStatValue}>#{teamStats.team_rank}</Text>
-                  <Text style={styles.teamStatLabel}>Rank</Text>
+                <View style={styles.teamStatsRow}>
+                  <View style={styles.teamStat}>
+                    <Text style={styles.teamStatValue}>-</Text>
+                    <Text style={styles.teamStatLabel}>Members</Text>
+                  </View>
+                  <View style={styles.teamStat}>
+                    <Text style={styles.teamStatValue}>-</Text>
+                    <Text style={styles.teamStatLabel}>Locations</Text>
+                  </View>
+                  <View style={styles.teamStat}>
+                    <Text style={styles.teamStatValue}>-</Text>
+                    <Text style={styles.teamStatLabel}>Rank</Text>
+                  </View>
                 </View>
               </View>
-            </View>
+            )}
           </View>
         )}
 
@@ -336,10 +531,6 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Strength</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{profileData.total_score || 0}</Text>
-              <Text style={styles.statLabel}>Total Score</Text>
-            </View>
-            <View style={styles.statCard}>
               <Text style={styles.statValue}>{getWinRate()}%</Text>
               <Text style={styles.statLabel}>Win Rate</Text>
             </View>
@@ -347,16 +538,12 @@ export default function ProfileScreen() {
 
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
-              <Text style={[styles.statValue, { color: '#4CAF50' }]}>{profileData.battles_won || 0}</Text>
+              <Text style={[styles.statValue, { color: '#4CAF50' }]}>{profileData.wins || 0}</Text>
               <Text style={styles.statLabel}>Wins</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={[styles.statValue, { color: '#F44336' }]}>{profileData.battles_lost || 0}</Text>
+              <Text style={[styles.statValue, { color: '#F44336' }]}>{profileData.losses || 0}</Text>
               <Text style={styles.statLabel}>Losses</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={[styles.statValue, { color: '#FFD700' }]}>{profileData.current_streak || 0}</Text>
-              <Text style={styles.statLabel}>Streak</Text>
             </View>
           </View>
         </View>
@@ -367,7 +554,7 @@ export default function ProfileScreen() {
           {defendingLocations.length > 0 ? (
             <View style={styles.locationsList}>
               {defendingLocations.slice(0, 5).map((location, index) => (
-                <View key={location.id} style={[styles.locationCard, styles.championCard]}>
+                <View key={index} style={[styles.locationCard, styles.championCard]}>
                   <Text style={styles.championIcon}>👑</Text>
                   <Text style={styles.locationName}>{location.name}</Text>
                   <Text style={styles.championText}>Champion</Text>
@@ -383,6 +570,35 @@ export default function ProfileScreen() {
         </View>
 
       </ScrollView>
+
+      {/* Image Selection Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={imageModalVisible}
+        onRequestClose={() => setImageModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Update Profile Picture</Text>
+            
+            <TouchableOpacity style={styles.modalButton} onPress={takePhoto}>
+              <Text style={styles.modalButtonText}>📷 Take Photo</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.modalButton} onPress={pickImageFromLibrary}>
+              <Text style={styles.modalButtonText}>📱 Choose from Library</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.modalCancelButton]} 
+              onPress={() => setImageModalVisible(false)}
+            >
+              <Text style={[styles.modalButtonText, styles.modalCancelText]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Logout Button */}
       <View style={styles.controls}>
@@ -445,10 +661,45 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#FFD700',
   },
-  rankBadge: {
+  profileImageUploading: {
+    opacity: 0.5,
+  },
+  cameraOverlay: {
     position: 'absolute',
     bottom: 0,
     right: 0,
+    backgroundColor: '#007AFF',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#0f0f23',
+  },
+  cameraIcon: {
+    fontSize: 16,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadingText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  rankBadge: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 15,
@@ -561,12 +812,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FFD700',
   },
-  locationDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 10,
-  },
   championIcon: {
     fontSize: 16,
     marginRight: 10,
@@ -576,10 +821,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'white',
     fontWeight: '500',
-  },
-  locationTeam: {
-    fontSize: 12,
-    color: '#ccc',
   },
   championText: {
     fontSize: 12,
@@ -599,32 +840,46 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
-  achievementsContainer: {
-    marginBottom: 30,
-  },
-  achievementsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  achievementBadge: {
-    flexDirection: 'row',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#FFD700',
   },
-  achievementIcon: {
-    fontSize: 14,
-    marginRight: 5,
+  modalContent: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 20,
+    padding: 30,
+    width: '80%',
+    alignItems: 'center',
   },
-  achievementText: {
-    fontSize: 12,
-    color: '#FFD700',
+  modalTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 25,
+  },
+  modalButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    marginBottom: 15,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalCancelText: {
+    color: '#ccc',
   },
   controls: {
     alignItems: 'center',
