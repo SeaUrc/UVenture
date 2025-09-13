@@ -149,15 +149,15 @@ def battle():
         
         if wins:
             # Team ownership change - set new team as owner and reset ownership
-            update_data = {
-                'owner_team': user_team,
-                'owner_count': 1,
-                'owned_since': datetime.utcnow().isoformat(),
-                'strongest_owner_id': user_id
-            }
+            # update_data = {
+            #     'owner_team': user_team,
+            #     'owner_count': 1,
+            #     'owned_since': datetime.utcnow().isoformat(),
+            #     'strongest_owner_id': user_id
+            # }
             
-            # Apply location updates
-            supabase.table('locations').update(update_data).eq('id', location_id).execute()
+            # # Apply location updates
+            # supabase.table('locations').update(update_data).eq('id', location_id).execute()
             
             return jsonify({'message': 'win'}), 200
         else:
