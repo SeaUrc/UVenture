@@ -78,10 +78,17 @@ export default function BattleArenaScreen() {
   const [sparkles, setSparkles] = useState<Sparkle[]>([]);
   const [sparkleIdCounter, setSparkleIdCounter] = useState(0);
   
+  // Special abilities state
+  const [superAttackCharge, setSuperAttackCharge] = useState(0);
+  const maxSuperAttackCharge = 5; // Requires 5 charges for super attack
+  
   // Battle data
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [strongestOwnerProfile, setStrongestOwnerProfile] = useState<ProfileData | null>(null);
   const [userProfile, setUserProfile] = useState<ProfileData | null>(null);
+  
+  // Preserve the initial champion's profile to display even after they're defeated
+  const [initialChampionProfile, setInitialChampionProfile] = useState<ProfileData | null>(null);
   
   // Auth state
   const [userToken, setUserToken] = useState<string | null>(null);
@@ -574,6 +581,12 @@ const addNeonIntensity = (color: string) => {
             strength: profileData.strength || 10
           });
           setStrongestOwnerProfile(profileData);
+          
+          // Save the initial champion profile if it hasn't been set yet
+          // This preserves the original champion's image even after they're defeated
+          if (!initialChampionProfile) {
+            setInitialChampionProfile(profileData);
+          }
         }
       }
     } catch (error) {
@@ -606,7 +619,7 @@ const addNeonIntensity = (color: string) => {
     if (battleStarted && !battleResult && enemyHealth > 0 && playerHealth > 0) {
       enemyAttackInterval = setInterval(() => {
         enemyAttack();
-      }, 1200 + Math.random() * 1800); // Enemy attacks every 1.2-3 seconds
+      }, 800 + Math.random() * 1200); // Enemy attacks every 0.8-2 seconds (faster)
     }
 
     return () => {
@@ -624,18 +637,41 @@ const addNeonIntensity = (color: string) => {
 
   const startBattle = () => {
     setBattleStarted(true);
-    setPlayerHealth(100);
+    
+    // Set player health based on special abilities
+    const playerMaxHealth = getPlayerMaxHealth(userProfile?.team || null);
+    setPlayerHealth(playerMaxHealth);
     setEnemyHealth(100);
+    
     setBattleTime(0);
     setBattleResult(null);
     setTapCount(0);
     setSparkles([]);
+    setSuperAttackCharge(0); // Reset super attack charge for Arts players
     
     // Start button movement after a brief delay
     setTimeout(() => {
         startButtonMovement();
     }, 100);
     };
+
+  // Special ability helper functions
+  const getPlayerType = (teamId: number | null): 'STEM' | 'Humanities' | 'Arts' | 'Normal' => {
+    if (!teamId) return 'Normal';
+    
+    if ([1, 2, 5].includes(teamId)) return 'STEM';
+    if ([3, 6, 8].includes(teamId)) return 'Humanities';
+    if ([4, 7].includes(teamId)) return 'Arts';
+    return 'Normal';
+  };
+
+  const getPlayerMaxHealth = (teamId: number | null): number => {
+    const playerType = getPlayerType(teamId);
+    if (playerType === 'Humanities') {
+      return 150; // 50% more health (100 * 1.5)
+    }
+    return 100; // Normal health
+  };
 
   const calculateDamage = (attackerStrength: number, defenderStrength: number): number => {
   // Ensure strength values are within valid range (1-100)
@@ -664,6 +700,33 @@ const addNeonIntensity = (color: string) => {
   // Round and ensure it's within reasonable range (0-12)
   return Math.max(0, Math.min(12, Math.round(baseDamage)));
 };
+
+  const calculateEnemyDamage = (attackerStrength: number, defenderStrength: number): number => {
+    // Ensure strength values are within valid range (1-100)
+    const validAttackerStrength = Math.max(1, Math.min(100, attackerStrength));
+    const validDefenderStrength = Math.max(1, Math.min(100, defenderStrength));
+    
+    // Calculate strength differential (-99 to +99)
+    const strengthDiff = validAttackerStrength - validDefenderStrength;
+    
+    // Normalize to 0-1 range where:
+    // - Attacker 100 vs Defender 1 = 0.99 (near max damage)
+    // - Attacker 1 vs Defender 100 = 0.01 (near min damage)
+    // - Equal strength = 0.5 (medium damage)
+    const normalizedStrength = (strengthDiff + 99) / 198;
+    
+    // Add randomness (0.5 to 1.0 multiplier for more consistent enemy damage)
+    const randomFactor = 0.5 + Math.random() * 0.5;
+    
+    // Calculate base enemy damage (3-15 range for stronger enemies)
+    const baseDamage = normalizedStrength * randomFactor * 6;
+    
+    // Give enemies a 2x damage multiplier to make them more threatening
+    const enemyDamage = baseDamage * 2;
+    
+    // Round and ensure it's within reasonable range (1-15)
+    return Math.max(1, Math.min(15, Math.round(enemyDamage)));
+  };
 
   // Attack button animation with sparkles
   const playAttackAnimation = () => {
@@ -759,11 +822,23 @@ const addNeonIntensity = (color: string) => {
 
     const userStrength = userProfile?.strength || 10;
     const enemyStrength = strongestOwnerProfile?.strength || 10;
+    const playerType = getPlayerType(userProfile?.team || null);
     
-    const damage = calculateDamage(userStrength, enemyStrength);
+    let damage = calculateDamage(userStrength, enemyStrength);
     const tapMultiplier = Math.min(1 + (tapCount * 0.1), 3.0);
     
-    console.log(`Player attack: User strength ${userStrength} vs Enemy strength ${enemyStrength} = ${damage} damage (${tapCount} taps, ${tapMultiplier.toFixed(1)}x multiplier)`);
+    // Apply special ability damage modifiers
+    if (playerType === 'STEM') {
+      // STEM players deal 50% more damage
+      damage = Math.round(damage * 1.5);
+    }
+    
+    // For Arts players, increment super attack charge
+    if (playerType === 'Arts') {
+      setSuperAttackCharge(prev => Math.min(prev + 1, maxSuperAttackCharge));
+    }
+    
+    console.log(`Player attack: ${playerType} player - User strength ${userStrength} vs Enemy strength ${enemyStrength} = ${damage} damage (${tapCount} taps, ${tapMultiplier.toFixed(1)}x multiplier)`);
     
     const newEnemyHealth = Math.max(0, enemyHealth - damage);
     setEnemyHealth(newEnemyHealth);
@@ -775,13 +850,46 @@ const addNeonIntensity = (color: string) => {
     }
     };
 
+  // Super attack function for Arts players
+  const playerSuperAttack = () => {
+    if (battleResult || !battleStarted) return;
+    if (getPlayerType(userProfile?.team || null) !== 'Arts') return;
+    if (superAttackCharge < maxSuperAttackCharge) return;
+
+    // Play attack animation and haptic feedback (could be enhanced for super attack)
+    playAttackAnimation();
+
+    const userStrength = userProfile?.strength || 10;
+    const enemyStrength = strongestOwnerProfile?.strength || 10;
+    
+    let damage = calculateDamage(userStrength, enemyStrength);
+    // Super attack does 5x damage
+    damage = Math.round(damage * 5);
+    
+    // Reset super attack charge
+    setSuperAttackCharge(0);
+    
+    console.log(`SUPER ATTACK! Arts player unleashes devastating attack for ${damage} damage!`);
+    
+    const newEnemyHealth = Math.max(0, enemyHealth - damage);
+    setEnemyHealth(newEnemyHealth);
+
+    if (newEnemyHealth <= 0) {
+        setBattleResult('victory');
+        submitBattleResult('win');
+        startCooldown();
+    }
+  };
+
   const enemyAttack = () => {
     if (battleResult || playerHealth <= 0 || enemyHealth <= 0) return;
 
     const enemyStrength = strongestOwnerProfile?.strength || 10;
     const userStrength = userProfile?.strength || 10;
     
-    const enemyDamage = calculateDamage(enemyStrength, userStrength);
+    // Calculate enemy damage without tap count dependency
+    const enemyDamage = calculateEnemyDamage(enemyStrength, userStrength);
+    
     console.log(`Enemy attack: Enemy strength ${enemyStrength} vs User strength ${userStrength} = ${enemyDamage} damage`);
     
     setPlayerHealth(prevHealth => {
@@ -900,6 +1008,7 @@ const addNeonIntensity = (color: string) => {
       if (battleResponse.message === 'win' && result === 'win') {
         await becomeOwner(locationData?.name || 'the location');
           setTimeout(() => {
+            setInitialChampionProfile(null);
             router.back();
           }, 1500);
       } else if (result === 'win') {
@@ -908,6 +1017,7 @@ const addNeonIntensity = (color: string) => {
             text: 'OK',
             onPress: () => {
               setTimeout(() => {
+                setInitialChampionProfile(null);
                 router.back();
               }, 1000);
             }
@@ -922,6 +1032,7 @@ const addNeonIntensity = (color: string) => {
               text: 'OK',
               onPress: () => {
                 setTimeout(() => {
+                  setInitialChampionProfile(null);
                   router.back();
                 }, 1000);
               }
@@ -1008,6 +1119,10 @@ const addNeonIntensity = (color: string) => {
   };
 
   const exitBattle = () => {
+    // Clear the preserved initial champion profile when exiting
+    // This ensures fresh data when entering a new battle
+    setInitialChampionProfile(null);
+    
     // Reset to root and prevent iOS swipe back by going to a fresh tab navigation
     if (router.canGoBack()) {
       router.dismissAll();
@@ -1038,6 +1153,7 @@ const addNeonIntensity = (color: string) => {
   };
 
   const getEnemyDisplayInfo = () => {
+  // Use current strongest owner profile if available
   if (strongestOwnerProfile) {
     return {
       name: strongestOwnerProfile.username,
@@ -1048,6 +1164,19 @@ const addNeonIntensity = (color: string) => {
     };
   }
   
+  // Fall back to preserved initial champion profile if available
+  // This maintains the defeated champion's image after battle completion
+  if (initialChampionProfile) {
+    return {
+      name: initialChampionProfile.username,
+      image: initialChampionProfile.image 
+        ? `data:image/png;base64,${initialChampionProfile.image}` 
+        : getEnemyAvatar(initialChampionProfile.team), 
+      team: initialChampionProfile.team,
+    };
+  }
+  
+  // Final fallback to location data
   return {
     name: locationData?.owner_team_name || 'Enemy Team',
     image: getEnemyAvatar(locationData?.owner_team || '1'), 
@@ -1078,6 +1207,20 @@ const addNeonIntensity = (color: string) => {
       <View style={styles.headerSection}>
         <Text style={styles.title}>⚔️ Battle Arena</Text>
         <Text style={styles.subtitle}>{title || locationData?.name}</Text>
+        
+        {/* Player Type Display */}
+        <View style={styles.playerTypeContainer}>
+          <Text style={styles.playerTypeLabel}>Your Class:</Text>
+          <Text style={[styles.playerTypeText, styles[`playerType${getPlayerType(userProfile?.team || null)}`]]}>
+            {getPlayerType(userProfile?.team || null)} {
+              getPlayerType(userProfile?.team || null) === 'STEM' ? '⚡ (+50% Damage)' :
+              getPlayerType(userProfile?.team || null) === 'Humanities' ? '❤️ (+50% Health)' :
+              getPlayerType(userProfile?.team || null) === 'Arts' ? '🌟 (Super Attack)' :
+              '⚔️ (Standard)'
+            }
+          </Text>
+        </View>
+        
         <Text style={styles.description}>
           1. Challenge the defending champion to capture this location! {'\n'}2. Tap the Attack button to deal damage. {'\n'}3. Defeat them to capture this location!
         </Text>
@@ -1115,9 +1258,9 @@ const addNeonIntensity = (color: string) => {
                 style={styles.playerImage} 
               />
               <View style={styles.healthBar}>
-                <View style={[styles.healthFill, { width: `${playerHealth}%`, backgroundColor: '#4CAF50' }]} />
+                <View style={[styles.healthFill, { width: `${(playerHealth / getPlayerMaxHealth(userProfile?.team || null)) * 100}%`, backgroundColor: '#4CAF50' }]} />
               </View>
-              <Text style={styles.healthText}>HP: {playerHealth}/100</Text>
+              <Text style={styles.healthText}>HP: {playerHealth}/{getPlayerMaxHealth(userProfile?.team || null)}</Text>
             </View>
 
             <Text style={styles.vsText}>VS</Text>
@@ -1146,7 +1289,7 @@ const addNeonIntensity = (color: string) => {
               Final Score: {calculateBattleScore(battleResult === 'victory' ? 'win' : 'lose')} points
             </Text>
             <Text style={styles.resultSubtext}>
-              Health Remaining: {playerHealth}/100
+              Health Remaining: {playerHealth}/{getPlayerMaxHealth(userProfile?.team || null)}
             </Text>
           </View>
         )}
@@ -1234,31 +1377,56 @@ const addNeonIntensity = (color: string) => {
               );
             })}
             
-            {/* Attack Button */}
-            <Animated.View style={animatedButtonStyle}>
-              <TouchableOpacity 
-                style={[
-                  styles.attackButton,
-                  { 
-                    backgroundColor: getButtonColor(),
-                    shadowColor: getButtonColor(),
-                    shadowOpacity: 0.6,
-                    shadowRadius: 8,
-                    shadowOffset: { width: 0, height: 0 },
-                    transform: [
-                        { scale: buttonScale._value || 1 },
-                        { 
-                            rotate: `${(buttonRotation._value || 0) * 5.73}deg`
-                        }
-                    ]
-                  }
-                ]} 
-                onPress={playerAttack}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.attackButtonText}>Attack!</Text>
-              </TouchableOpacity>
-            </Animated.View>
+            {/* Buttons Container */}
+            <View style={styles.buttonsRow}>
+              {/* Attack Button */}
+              <Animated.View style={animatedButtonStyle}>
+                <TouchableOpacity 
+                  style={[
+                    styles.attackButton,
+                    { 
+                      backgroundColor: getButtonColor(),
+                      shadowColor: getButtonColor(),
+                      shadowOpacity: 0.6,
+                      shadowRadius: 8,
+                      shadowOffset: { width: 0, height: 0 },
+                      transform: [
+                          { scale: buttonScale._value || 1 },
+                          { 
+                              rotate: `${(buttonRotation._value || 0) * 5.73}deg`
+                          }
+                      ]
+                    }
+                  ]} 
+                  onPress={playerAttack}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.attackButtonText}>Attack!</Text>
+                </TouchableOpacity>
+              </Animated.View>
+              
+              {/* Super Attack Button for Arts players */}
+              {getPlayerType(userProfile?.team || null) === 'Arts' && (
+                <TouchableOpacity 
+                  style={[
+                    styles.superAttackButton,
+                    { 
+                      opacity: superAttackCharge >= maxSuperAttackCharge ? 1 : 0.5,
+                      backgroundColor: superAttackCharge >= maxSuperAttackCharge ? '#FFD700' : '#666666',
+                      shadowColor: superAttackCharge >= maxSuperAttackCharge ? '#FFD700' : '#666666',
+                    }
+                  ]} 
+                  onPress={playerSuperAttack}
+                  disabled={superAttackCharge < maxSuperAttackCharge}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.superAttackButtonText}>🌟</Text>
+                  <Text style={styles.superAttackChargeText}>
+                    {superAttackCharge}/{maxSuperAttackCharge}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
       </View>
@@ -1746,5 +1914,75 @@ sparkAura: {
   top: -3,
   left: -3,
   zIndex: 999,
+},
+
+// Player type styles
+playerTypeContainer: {
+  alignItems: 'center',
+  marginVertical: 10,
+  padding: 10,
+  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: 'rgba(255, 255, 255, 0.2)',
+},
+playerTypeLabel: {
+  fontSize: 14,
+  color: '#CCCCCC',
+  marginBottom: 4,
+},
+playerTypeText: {
+  fontSize: 16,
+  fontWeight: 'bold',
+  textAlign: 'center',
+},
+playerTypeSTEM: {
+  color: '#00BFFF', // Electric blue for STEM
+},
+playerTypeHumanities: {
+  color: '#FF69B4', // Pink for Humanities  
+},
+playerTypeArts: {
+  color: '#FFD700', // Gold for Arts
+},
+playerTypeNormal: {
+  color: '#FFFFFF', // White for Normal
+},
+
+// Buttons row container
+buttonsRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 20,
+},
+
+// Super attack button styles
+superAttackContainer: {
+  marginTop: 20,
+  alignItems: 'center',
+},
+superAttackButton: {
+  width: 70,
+  height: 70,
+  borderRadius: 35,
+  alignItems: 'center',
+  justifyContent: 'center',
+  shadowOpacity: 0.6,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 8,
+},
+superAttackButtonText: {
+  fontSize: 20,
+  fontWeight: 'bold',
+  color: '#000000',
+  textAlign: 'center',
+},
+superAttackChargeText: {
+  fontSize: 10,
+  color: '#000000',
+  marginTop: 2,
+  fontWeight: '600',
 },
 });

@@ -280,6 +280,34 @@ export default function ProfileScreen() {
     );
   };
 
+  // Special ability helper functions
+  const getPlayerType = (teamId: number | null): 'STEM' | 'Humanities' | 'Arts' | 'Normal' => {
+    if (!teamId) return 'Normal';
+    
+    if ([1, 2, 5].includes(teamId)) return 'STEM';
+    if ([3, 6, 8].includes(teamId)) return 'Humanities';
+    if ([4, 7].includes(teamId)) return 'Arts';
+    return 'Normal';
+  };
+
+  const getAbilityDescription = (playerType: string): string => {
+    switch (playerType) {
+      case 'STEM': return 'Deal 50% more damage in battle';
+      case 'Humanities': return 'Start battles with 50% more health';
+      case 'Arts': return 'Build up charge for devastating super attacks';
+      default: return 'No special abilities';
+    }
+  };
+
+  const getAbilityIcon = (playerType: string): string => {
+    switch (playerType) {
+      case 'STEM': return '⚡';
+      case 'Humanities': return '❤️';
+      case 'Arts': return '🌟';
+      default: return '⚔️';
+    }
+  };
+
   const getRankColor = (rank: string) => {
     switch (rank?.toLowerCase()) {
       case 'champion': return '#FFD700';
@@ -364,6 +392,20 @@ export default function ProfileScreen() {
                 </View>
               </View>
             )}
+            
+            {/* Special Abilities Section */}
+            <View style={styles.abilityContainer}>
+              <Text style={styles.abilityTitle}>Special Ability</Text>
+              <View style={styles.abilityCard}>
+                <View style={styles.abilityHeader}>
+                  <Text style={styles.abilityIcon}>{getAbilityIcon(getPlayerType(profileData?.team || null))}</Text>
+                  <Text style={styles.abilityClass}>{getPlayerType(profileData?.team || null)}</Text>
+                </View>
+                <Text style={styles.abilityDescription}>
+                  {getAbilityDescription(getPlayerType(profileData?.team || null))}
+                </Text>
+              </View>
+            </View>
           </View>
         )}
 
@@ -658,5 +700,43 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+
+  // Special abilities styles
+  abilityContainer: {
+    marginTop: 15,
+  },
+  abilityTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 10,
+  },
+  abilityCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  abilityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  abilityIcon: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+  abilityClass: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFD700',
+  },
+  abilityDescription: {
+    fontSize: 14,
+    color: '#CCCCCC',
+    lineHeight: 20,
+    marginLeft: 30,
   },
 });

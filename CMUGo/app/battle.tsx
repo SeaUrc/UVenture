@@ -363,6 +363,17 @@ export default function BattleScreen() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  const handleBattleButtonPress = () => {
+    // If user can join their team, handle join action
+    if (userJoinedTeam) {
+      handleJoinTeam();
+      return;
+    }
+
+    // Otherwise, handle battle entry
+    enterBattleArena();
+  };
+
   const enterBattleArena = () => {
     if (cooldownActive) {
       Alert.alert('Cooldown Active', `You must wait ${formatCooldownTime(cooldownTimeLeft)} before battling here again.`);
@@ -394,7 +405,51 @@ export default function BattleScreen() {
   };
 
   const exitScreen = () => {
-    router.back();
+    // Check if we can go back, otherwise navigate to main tabs
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      // If no previous screen, go to main tabs
+      router.replace('/(tabs)');
+    }
+  };
+
+  const handleJoinTeam = async () => {
+    if (!userId || !locationData || !userToken) {
+      Alert.alert('Error', 'Missing user, location, or authentication data');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${databaseUrl}/api/interactions/become_owner`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`,
+        },
+        body: JSON.stringify({
+          id: locationData.id,
+        }),
+      });
+
+      if (response.ok) {
+        Alert.alert('Success!', 'You have joined your team\'s defense!', [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate back to home/explore page
+              exitScreen();
+            }
+          }
+        ]);
+      } else {
+        const errorData = await response.json();
+        Alert.alert('Error', errorData.error || 'Failed to join team');
+      }
+    } catch (error) {
+      console.error('Error joining team:', error);
+      Alert.alert('Error', 'Failed to join team. Please try again.');
+    }
   };
 
   // Get display info for both fighters
@@ -450,7 +505,7 @@ export default function BattleScreen() {
     }
     // Check if user joined the team (can join their own team's location)
     if (userJoinedTeam) {
-      return { text: 'Join Your Team First', disabled: true };
+      return { text: 'Join Your Team Defense', disabled: false };
     }
     // Check if user is waiting to join (same team but can't join yet)
     if (waitingToJoin) {
@@ -638,7 +693,7 @@ export default function BattleScreen() {
             styles.battleButton, 
             battleButtonInfo.disabled && styles.battleButtonDisabled
           ]} 
-          onPress={enterBattleArena}
+          onPress={handleBattleButtonPress}
           disabled={battleButtonInfo.disabled}
         >
           <Text style={styles.battleButtonText}>
