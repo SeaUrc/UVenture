@@ -24,7 +24,7 @@ type LocationData = {
 };
 
 // --- MODIFICATION: Define constants for map camera settings ---
-const BATTLE_RADIUS = 35;
+const BATTLE_RADIUS = 100;
 const MAP_ALTITUDE = 450; // Set a much higher initial elevation (in meters)
 const MAP_PITCH = 45; // Set the camera pitch
 
