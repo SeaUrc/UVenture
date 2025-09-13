@@ -14,15 +14,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 type LocationData = {
   id: number;
   name: string;
-  image: string;
   latitude: number;
   longitude: number;
-  owner_team: number;
-  owner_team_color: string;
-  owner_team_name: string;
-  owner_count: number;
-  owned_since: string;
-  strongest_owner_id: number;
+  story: string;
+  image: string;
+  can_join?: boolean; // Make optional to handle existing data
+  defender_count?: number; // Make optional to handle existing data
+  owner_team?: string | number; // Make optional to handle existing data
+  owner_team_name?: string;
+  owner_team_color?: string;
+  owner_count?: number;
+};
+
+type ProfileData = {
+  username: string;
+  team: string;
+  image: string;
 };
 
 // --- MODIFICATION: Define constants for map camera settings ---
@@ -45,7 +52,11 @@ export default function TabTwoScreen() {
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+<<<<<<< HEAD
   const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
+=======
+  const [userProfile, setUserProfile] = useState<ProfileData | null>(null);
+>>>>>>> 388a25efa0910f9aa945520d109adc29333db498
   
   // Map following state
   const [isFollowingUser, setIsFollowingUser] = useState(true);
@@ -80,6 +91,37 @@ export default function TabTwoScreen() {
     };
     getAuthData();
   }, []);
+
+  // Fetch user's profile data
+  const fetchUserProfile = async () => {
+    if (!userId) return;
+    
+    try {
+      const response = await fetch(`${databaseUrl}/api/profile/get_profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: userId,
+        }),
+      });
+
+      if (response.ok) {
+        const profileData = await response.json();
+        setUserProfile(profileData);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  // Fetch user profile when userId is available
+  useEffect(() => {
+    if (userId) {
+      fetchUserProfile();
+    }
+  }, [userId]);
 
   
   // Logout function
@@ -366,6 +408,7 @@ export default function TabTwoScreen() {
               title="You are here"
             >
               <View style={styles.userLocationMarker}>
+<<<<<<< HEAD
                 <Image 
                   source={
                     userProfileImage 
@@ -374,6 +417,19 @@ export default function TabTwoScreen() {
                   } 
                   style={[styles.markerImage, userProfileImage && styles.userProfileImage]}
                 />
+=======
+                {userProfile && userProfile.image ? (
+                  <Image 
+                    source={{ uri: `data:image/png;base64,${userProfile.image}` }}
+                    style={styles.markerImage}
+                  />
+                ) : (
+                  <Image 
+                    source={require('@/assets/images/icon.png')} 
+                    style={styles.markerImage}
+                  />
+                )}
+>>>>>>> 388a25efa0910f9aa945520d109adc29333db498
               </View>
             </Marker>
           )}
