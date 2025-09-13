@@ -117,7 +117,8 @@ def battle():
         total_power = score + user_strength
         
         # Determine if user wins
-        wins = total_power > battle_threshold
+        # wins = total_power > battle_threshold
+        wins = data.get('result') == 'win'
         
         # Calculate strength change (-1 to 3 inclusive, clamped between 0 and 100)
         strength_change = random.randint(-1, 3)
@@ -181,6 +182,7 @@ def become_owner():
         
         location_id = data.get('id')
         user_id = g.user_id
+        result = data.get('result')
         
         # Validate input
         if location_id is None:
@@ -210,32 +212,26 @@ def become_owner():
         current_owner_count = location.get('owner_count', 0)
         current_strongest_owner_id = location.get('strongest_owner_id')
         
+
         # Check if user's team owns the location
-        if location_owner_team != user_team:
-            return jsonify({'error': 'Your team does not own this location'}), 403
+        if result=='lose':
+            return jsonify({'message':"success"}), 200
+
+        
         
         # Increment owner count (assuming this represents the user joining as an owner)
-        new_owner_count = current_owner_count + 1
         
         # Update location data
         update_data = {
-            'owner_count': new_owner_count
+            'owner_count': 1
         }
+        if location_owner_team == user_team:
+            update_data['owner_count'] = current_owner_count + 1
+
+        update_data['strongest_owner_id'] = user_id
+        update_data['owner_team'] = user_team
         
-        # Check if this user should become the strongest owner
-        if current_strongest_owner_id:
-            # # Get current strongest owner's strength
-            # strongest_response = supabase.table('users').select('strength').eq('id', current_strongest_owner_id).execute()
-            # if strongest_response.data:
-            #     current_strongest_strength = strongest_response.data[0].get('strength', 0)
-            #     if user_strength > current_strongest_strength:
-            # STRONGEST OWNER IS NOW THE WINNER
-            update_data['strongest_owner_id'] = user_id
-        else:
-            # No current strongest owner, set this user
-            update_data['strongest_owner_id'] = user_id
-        
-        # Update the location
+                # Update the location
         supabase.table('locations').update(update_data).eq('id', location_id).execute()
         
         return jsonify({'message':"success"}), 200

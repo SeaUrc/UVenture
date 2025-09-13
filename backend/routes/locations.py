@@ -8,7 +8,7 @@ locations_bp = Blueprint('locations', __name__)
 supabase = get_supabase_client()
 
 # Constants
-CAN_JOIN_PERIOD = 5 * 60  # 30 minutes in seconds
+CAN_JOIN_PERIOD = 10  # 30 minutes in seconds
 
 @locations_bp.route('/get_locations', methods=['GET'])
 def get_locations():

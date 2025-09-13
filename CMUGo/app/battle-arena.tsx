@@ -227,6 +227,7 @@ const animateButtonMovement = () => {
         },
         body: JSON.stringify({
           id: parseInt(id as string),
+          result: 'win'
         }),
       });
 
@@ -1205,6 +1206,7 @@ const addNeonIntensity = (color: string) => {
         },
         body: JSON.stringify({
           id: parseInt(id as string),
+          result: 'win'
         }),
       });
 
