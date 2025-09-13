@@ -77,11 +77,30 @@ def test_profile_endpoints(token, user_id):
     print(f"Status: {response.status_code}")
     print(f"Response: {response.text}")
 
+def test_locations():
+    """Test locations endpoints"""
+    print("\nTesting get locations...")
+    
+    url = f"{BASE_URL}/locations/get_locations"
+    response = requests.get(url)
+    print(f"Status: {response.status_code}")
+    print(f"Response: {response.text}")
+    
+    if response.status_code == 200:
+        data = response.json()
+        print(f"Number of locations: {len(data.get('data', []))}")
+        if data.get('data'):
+            print("Sample location object:")
+            print(json.dumps(data['data'][0], indent=2))
+
 def main():
     print("CMUGo Backend API Test")
     print("=" * 30)
     print("Make sure the Flask server is running on http://127.0.0.1:5001")
     print()
+    
+    # Test locations (no auth required)
+    test_locations()
     
     # Test authentication
     if test_create_account():

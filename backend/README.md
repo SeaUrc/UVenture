@@ -61,7 +61,10 @@ All API endpoints are prefixed with `/api`:
   - Error: `{"error": string}` (400/404/500)
 
 ### Locations (`/api/locations`)
-- `GET /api/locations/` - Get all locations
+- `GET /api/locations/get_locations` - Get all locations with complete information
+  - Success: `{"data": [location_objects]}` (200)
+  - Error: `{"error": string}` (500)
+  - Location object includes: id, name, image, latitude, longitude, owner_team, owner_team_color, owner_team_name, owner_count, owned_since, strongest_owner_id
 - `GET /api/locations/<id>` - Get specific location
 - `POST /api/locations/` - Create new location
 - `POST /api/locations/nearby` - Get nearby locations
@@ -90,9 +93,10 @@ All API endpoints are prefixed with `/api`:
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Go to Settings > API to find your project URL and anon key
 3. Add these credentials to your `.env` file
-4. Create a `users` table in your Supabase database with the following schema:
+4. Create the required tables in your Supabase database with the following schemas:
 
 ```sql
+-- Users table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
@@ -100,6 +104,27 @@ CREATE TABLE users (
     password_hash TEXT NOT NULL,
     strength INTEGER DEFAULT 0,
     image TEXT  -- For base64 profile pictures
+);
+
+-- Teams table
+CREATE TABLE teams (
+    id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    color TEXT NOT NULL,  -- Hex color code like "#FF0000"
+    points BIGINT DEFAULT 0
+);
+
+-- Locations table
+CREATE TABLE locations (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    image TEXT,  -- Base64 image data for the location
+    latitude FLOAT NOT NULL,
+    longitude FLOAT NOT NULL,
+    owner_team INTEGER REFERENCES teams(id),
+    owner_count INTEGER DEFAULT 0,
+    owned_since TIMESTAMP,
+    strongest_owner_id INTEGER REFERENCES users(id)
 );
 ```
 
