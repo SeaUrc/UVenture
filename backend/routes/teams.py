@@ -8,15 +8,34 @@ supabase = get_supabase_client()
 
 @teams_bp.route('/get_teams', methods=['GET'])
 def get_teams():
-    """Get all teams"""
+    """Get all teams with member counts"""
     if not supabase:
         return jsonify({'error': 'Database not configured'}), 500
     
     try:
-        response = supabase.table('teams').select('id, name, color, points').execute()
-        print(response.data)
+        # Get all teams
+        teams_response = supabase.table('teams').select('id, name, color, points').execute()
+        teams = teams_response.data
+        
+        # Get all users to count members per team
+        users_response = supabase.table('users').select('team').execute()
+        users = users_response.data
+        
+        # Count members for each team
+        team_member_counts = {}
+        for user in users:
+            team_id = user.get('team')
+            if team_id is not None:
+                team_member_counts[team_id] = team_member_counts.get(team_id, 0) + 1
+        
+        # Add member count to each team
+        for team in teams:
+            team_id = team['id']
+            team['members'] = team_member_counts.get(team_id, 0)
+        
+        print(teams)
         return jsonify({
-            'data': response.data
+            'data': teams
         })
         
     except Exception as e:

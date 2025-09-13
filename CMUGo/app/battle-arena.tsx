@@ -1036,12 +1036,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.background,
     padding: 24,
-    paddingTop: 60,
+    paddingTop: 20,
   },
   headerSection: {
     alignItems: 'center',
-    marginBottom: 32,
-    paddingBottom: 20,
+    marginBottom: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 215, 0, 0.2)',
   },
@@ -1094,7 +1094,7 @@ const styles = StyleSheet.create({
   battleField: {
     flex: 1,
     justifyContent: 'center',
-    minHeight: 400,
+    minHeight: 160,
     paddingVertical: 24,
   },
   combatArea: {
@@ -1102,7 +1102,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
-    minHeight: 240,
+    minHeight: 180,
   },
   startContainer: {
     alignItems: 'center',
@@ -1249,7 +1249,7 @@ const styles = StyleSheet.create({
   resultContainer: {
     alignItems: 'center',
     marginVertical: 24,
-    padding: 24,
+    padding: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 20,
     marginHorizontal: 16,
