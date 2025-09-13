@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, Animated } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { Colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 
-const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
+const databaseUrl = 'http://unrevetted-larue-undeleterious.ngrok-free.app';
 
 type LocationData = {
   id: number;
@@ -27,6 +29,15 @@ type ProfileData = {
   strength?: number;
   wins?: number;
   losses?: number;
+};
+
+type Sparkle = {
+  id: number;
+  x: Animated.Value;
+  y: Animated.Value;
+  opacity: Animated.Value;
+  scale: Animated.Value;
+  color: string;
 };
 
 // Mock enemy avatars based on team colors
@@ -57,6 +68,11 @@ export default function BattleArenaScreen() {
   const [buttonScale] = useState(new Animated.Value(1));
   const [buttonRotation] = useState(new Animated.Value(0));
   
+  // Sparkle and button effects state
+  const [tapCount, setTapCount] = useState(0);
+  const [sparkles, setSparkles] = useState<Sparkle[]>([]);
+  const [sparkleIdCounter, setSparkleIdCounter] = useState(0);
+  
   // Battle data
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [strongestOwnerProfile, setStrongestOwnerProfile] = useState<ProfileData | null>(null);
@@ -65,8 +81,6 @@ export default function BattleArenaScreen() {
   // Auth state
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
-
-  // ...existing useEffects and functions remain the same...
 
   useEffect(() => {
     const getAuthData = async () => {
@@ -89,6 +103,225 @@ export default function BattleArenaScreen() {
       fetchUserProfile();
     }
   }, [id, userToken, userId]);
+
+  // Reset tap count when battle starts/ends
+  useEffect(() => {
+    if (!battleStarted || battleResult) {
+      setTapCount(0);
+      setSparkles([]);
+    }
+  }, [battleStarted, battleResult]);
+
+  // Get button color based on tap count
+  const getButtonColor = () => {
+    const colors = [
+      '#FF5722', // Default orange
+      '#FF7043', // Light orange
+      '#FF8A65', // Lighter orange
+      '#FFB74D', // Yellow-orange
+      '#FDD835', // Yellow
+      '#CDDC39', // Yellow-green
+      '#8BC34A', // Light green
+      '#4CAF50', // Green
+      '#26A69A', // Teal
+      '#29B6F6', // Light blue
+      '#42A5F5', // Blue
+      '#5C6BC0', // Indigo
+      '#7E57C2', // Deep purple
+      '#AB47BC', // Purple
+      '#EC407A', // Pink
+      '#EF5350', // Red
+    ];
+    
+    const colorIndex = Math.min(tapCount, colors.length - 1);
+    return colors[colorIndex];
+  };
+
+  // Create sparkles
+  const createSparkles = (count: number, color: string) => {
+    console.log('Creating', count, 'sparkles with color:', color);
+    
+    const newSparkles: Sparkle[] = [];
+    
+    for (let i = 0; i < count; i++) {
+      // Create variations of the base color for more vibrant effect
+      const sparkleColor = getSparkleVariation(color);
+      
+      const sparkle: Sparkle = {
+        id: sparkleIdCounter + i,
+        x: new Animated.Value(0),
+        y: new Animated.Value(0),
+        opacity: new Animated.Value(1),
+        scale: new Animated.Value(0.5), // Start smaller for pop effect
+        color: sparkleColor,
+      };
+      
+      newSparkles.push(sparkle);
+      
+      // More dramatic animation with gravity and spread
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 1.2; // More spread
+      const distance = 50 + Math.random() * 80; // Longer travel distance
+      const targetX = Math.cos(angle) * distance + (Math.random() - 0.5) * 30; // Add randomness
+      const targetY = Math.sin(angle) * distance + Math.random() * 20 - 40; // Slight upward bias
+      
+      // Gravity effect - sparkles fall down after initial burst
+      const finalY = targetY + 30 + Math.random() * 50;
+      
+      // Start animations immediately
+      Animated.parallel([
+        // Initial burst movement
+        Animated.sequence([
+          Animated.timing(sparkle.x, {
+            toValue: targetX,
+            duration: 400 + Math.random() * 200,
+            useNativeDriver: true,
+          }),
+          // Slight drift after initial movement
+          Animated.timing(sparkle.x, {
+            toValue: targetX + (Math.random() - 0.5) * 20,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]),
+        // Y movement with gravity
+        Animated.sequence([
+          Animated.timing(sparkle.y, {
+            toValue: targetY,
+            duration: 300 + Math.random() * 200,
+            useNativeDriver: true,
+          }),
+          // Fall down with gravity
+          Animated.timing(sparkle.y, {
+            toValue: finalY,
+            duration: 500 + Math.random() * 300,
+            useNativeDriver: true,
+          }),
+        ]),
+        // Scale: dramatic pop then shrink
+        Animated.sequence([
+          Animated.spring(sparkle.scale, {
+            toValue: 1.8 + Math.random() * 0.4, // Bigger initial pop
+            tension: 200,
+            friction: 3,
+            useNativeDriver: true,
+          }),
+          Animated.timing(sparkle.scale, {
+            toValue: 0,
+            duration: 600 + Math.random() * 400,
+            useNativeDriver: true,
+          }),
+        ]),
+        // Dramatic fade with flicker
+        Animated.sequence([
+          Animated.delay(100),
+          // Quick flicker effect
+          Animated.sequence([
+            Animated.timing(sparkle.opacity, {
+              toValue: 0.7,
+              duration: 50,
+              useNativeDriver: true,
+            }),
+            Animated.timing(sparkle.opacity, {
+              toValue: 1,
+              duration: 50,
+              useNativeDriver: true,
+            }),
+            Animated.timing(sparkle.opacity, {
+              toValue: 0.8,
+              duration: 50,
+              useNativeDriver: true,
+            }),
+            Animated.timing(sparkle.opacity, {
+              toValue: 1,
+              duration: 50,
+              useNativeDriver: true,
+            }),
+          ]),
+          // Final fade out
+          Animated.timing(sparkle.opacity, {
+            toValue: 0,
+            duration: 500 + Math.random() * 300,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start();
+    }
+    
+    setSparkleIdCounter(prev => prev + count);
+    
+    // Add sparkles to state immediately
+    setSparkles(prev => {
+      console.log('Previous sparkles:', prev.length, 'Adding:', newSparkles.length);
+      return [...prev, ...newSparkles];
+    });
+    
+    // Clean up old sparkles after animation
+    setTimeout(() => {
+      setSparkles(prev => {
+        const filtered = prev.filter(s => !newSparkles.some(ns => ns.id === s.id));
+        console.log('Cleaning up sparkles, remaining:', filtered.length);
+        return filtered;
+      });
+    }, 1500);
+  };
+  
+  const getSparkleVariation = (baseColor: string) => {
+    const variations = {
+      '#FF5722': ['#FF6B3D', '#FF8A50', '#FFB74D', '#FF5722', '#FF3D00'], // Orange variations
+      '#FF7043': ['#FF8A65', '#FFAB91', '#FFD54F', '#FF9800', '#FF6D00'], // Light orange
+      '#FF8A65': ['#FFAB91', '#FFCC80', '#FFE082', '#FFC107', '#FF8F00'], // Lighter orange
+      '#FFB74D': ['#FFD54F', '#FFECB3', '#FFF176', '#FFEB3B', '#FFC107'], // Yellow-orange
+      '#FDD835': ['#FFEB3B', '#FFF176', '#F9FFA4', '#CCFF90', '#AFD135'], // Yellow
+      '#CDDC39': ['#D4E157', '#DCE775', '#E6EE9C', '#8BC34A', '#689F38'], // Yellow-green
+      '#8BC34A': ['#9CCC65', '#AED581', '#C8E6C9', '#4CAF50', '#388E3C'], // Light green
+      '#4CAF50': ['#66BB6A', '#81C784', '#A5D6A7', '#00E676', '#00C853'], // Green
+      '#26A69A': ['#4DB6AC', '#80CBC4', '#B2DFDB', '#1DE9B6', '#00BFA5'], // Teal
+      '#29B6F6': ['#4FC3F7', '#81D4FA', '#B3E5FC', '#00E5FF', '#00B0FF'], // Light blue
+      '#42A5F5': ['#64B5F6', '#90CAF9', '#BBDEFB', '#2196F3', '#1976D2'], // Blue
+      '#5C6BC0': ['#7986CB', '#9FA8DA', '#C5CAE9', '#3F51B5', '#303F9F'], // Indigo
+      '#7E57C2': ['#9575CD', '#B39DDB', '#D1C4E9', '#673AB7', '#512DA8'], // Deep purple
+      '#AB47BC': ['#BA68C8', '#CE93D8', '#E1BEE7', '#9C27B0', '#7B1FA2'], // Purple
+      '#EC407A': ['#F06292', '#F48FB1', '#F8BBD9', '#E91E63', '#C2185B'], // Pink
+      '#EF5350': ['#F44336', '#EF5350', '#E57373', '#FFCDD2', '#D32F2F'], // Red
+    };
+    
+    const colorVariations = variations[baseColor] || [baseColor];
+    const randomVariation = colorVariations[Math.floor(Math.random() * colorVariations.length)];
+    
+    // Add neon glow effect by making colors more saturated
+    return addNeonGlow(randomVariation);
+  };
+
+  const addNeonGlow = (color: string) => {
+    // Convert hex to more vibrant/neon version
+    const neonColors = {
+      '#FF6B3D': '#FF4500', '#FF8A50': '#FF6347', '#FFB74D': '#FFA500',
+      '#FF8A65': '#FF7F50', '#FFAB91': '#FFA07A', '#FFD54F': '#FFD700',
+      '#FFCC80': '#FFCC00', '#FFE082': '#FFFF00', '#FFC107': '#FFD700',
+      '#FFEB3B': '#FFFF32', '#FFF176': '#FFFF66', '#F9FFA4': '#FFFACD',
+      '#CCFF90': '#ADFF2F', '#AFD135': '#9ACD32', '#D4E157': '#CDDC39',
+      '#DCE775': '#E6FF00', '#E6EE9C': '#F0FFF0', '#8BC34A': '#7CFC00',
+      '#689F38': '#6B8E23', '#9CCC65': '#9ACD32', '#AED581': '#98FB98',
+      '#C8E6C9': '#90EE90', '#4CAF50': '#32CD32', '#388E3C': '#228B22',
+      '#66BB6A': '#00FF7F', '#81C784': '#98FB98', '#A5D6A7': '#AFEEEE',
+      '#00E676': '#00FF7F', '#00C853': '#00FF00', '#4DB6AC': '#40E0D0',
+      '#80CBC4': '#48D1CC', '#B2DFDB': '#AFEEEE', '#1DE9B6': '#00FFFF',
+      '#00BFA5': '#00CED1', '#4FC3F7': '#00BFFF', '#81D4FA': '#87CEEB',
+      '#B3E5FC': '#B0E0E6', '#00E5FF': '#00BFFF', '#00B0FF': '#0080FF',
+      '#64B5F6': '#4169E1', '#90CAF9': '#87CEFA', '#BBDEFB': '#ADD8E6',
+      '#2196F3': '#0080FF', '#1976D2': '#4169E1', '#7986CB': '#6A5ACD',
+      '#9FA8DA': '#9370DB', '#C5CAE9': '#DDA0DD', '#3F51B5': '#483D8B',
+      '#303F9F': '#4B0082', '#9575CD': '#9370DB', '#B39DDB': '#DA70D6',
+      '#D1C4E9': '#DDA0DD', '#673AB7': '#8A2BE2', '#512DA8': '#4B0082',
+      '#BA68C8': '#DA70D6', '#CE93D8': '#DDA0DD', '#E1BEE7': '#EE82EE',
+      '#9C27B0': '#8B008B', '#7B1FA2': '#800080', '#F06292': '#FF1493',
+      '#F48FB1': '#FFB6C1', '#F8BBD9': '#FFC0CB', '#E91E63': '#DC143C',
+      '#C2185B': '#B22222', '#F44336': '#FF0000', '#EF5350': '#FF6347',
+      '#E57373': '#FA8072', '#FFCDD2': '#FFB6C1', '#D32F2F': '#8B0000',
+    };
+    
+    return neonColors[color] || color;
+  };
 
   // Fetch user's own profile
   const fetchUserProfile = async () => {
@@ -218,6 +451,8 @@ export default function BattleArenaScreen() {
     setEnemyHealth(100);
     setBattleTime(0);
     setBattleResult(null);
+    setTapCount(0);
+    setSparkles([]);
   };
 
   const calculateDamage = (attackerStrength: number, defenderStrength: number): number => {
@@ -244,10 +479,43 @@ export default function BattleArenaScreen() {
     return Math.max(0, Math.min(4, Math.round(baseDamage)));
   };
 
-  // Attack button animation
+  // Attack button animation with sparkles
   const playAttackAnimation = () => {
     // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Increment tap count
+    const newTapCount = tapCount + 1;
+    setTapCount(newTapCount);
+    
+    // Get current button color - but use the NEW tap count for color calculation
+    const colors = [
+      '#FF5722', // Default orange
+      '#FF7043', // Light orange
+      '#FF8A65', // Lighter orange
+      '#FFB74D', // Yellow-orange
+      '#FDD835', // Yellow
+      '#CDDC39', // Yellow-green
+      '#8BC34A', // Light green
+      '#4CAF50', // Green
+      '#26A69A', // Teal
+      '#29B6F6', // Light blue
+      '#42A5F5', // Blue
+      '#5C6BC0', // Indigo
+      '#7E57C2', // Deep purple
+      '#AB47BC', // Purple
+      '#EC407A', // Pink
+      '#EF5350', // Red
+    ];
+    
+    const colorIndex = Math.min(newTapCount - 1, colors.length - 1);
+    const currentColor = colors[colorIndex];
+    
+    console.log('Creating sparkles with color:', currentColor, 'tap count:', newTapCount);
+    
+    // Create sparkles based on tap count (more taps = more sparkles)
+    const sparkleCount = Math.min(3 + Math.floor(newTapCount / 2), 12);
+    createSparkles(sparkleCount, currentColor);
     
     // Scale and rotation animation
     Animated.sequence([
@@ -341,7 +609,7 @@ export default function BattleArenaScreen() {
     });
   };
 
-  // ...rest of the existing functions remain the same...
+  // ... rest of existing functions remain the same ...
 
   const calculateBattleScore = (result: 'win' | 'lose') => {
     let score = 50; // Base score
@@ -408,6 +676,12 @@ export default function BattleArenaScreen() {
       // Update local profile stats IMMEDIATELY after storing cooldown
       await updateLocalProfileStats(result);
 
+      console.log('Submitting battle result:', {
+        id: id,
+        score: battleScore,
+        userToken: userToken ? 'present' : 'missing'
+      });
+
       const response = await fetch(`${databaseUrl}/api/interactions/battle`, {
         method: 'POST',
         headers: {
@@ -415,42 +689,31 @@ export default function BattleArenaScreen() {
           'Authorization': `Bearer ${userToken}`,
         },
         body: JSON.stringify({
-          id: parseInt(id as string),
+          id: parseInt(id as string), // Convert to number
           score: battleScore,
         }),
       });
 
+      console.log('Battle API response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Battle API error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
 
       const battleResponse = await response.json();
+      console.log('Battle response data:', battleResponse);
+      
+      // Refresh location data after battle completion
+      console.log('Refreshing location data after battle...');
+      await fetchLocationData();
       
       if (battleResponse.message === 'win' && result === 'win') {
-        Alert.alert(
-          'Victory!',
-          `You captured ${locationData?.name || 'the location'}! Do you want to become an owner?`,
-          [
-            {
-              text: 'No Thanks',
-              style: 'cancel',
-              onPress: () => {
-                setTimeout(() => {
-                  router.replace('/(tabs)');
-                }, 1000);
-              }
-            },
-            {
-              text: 'Become Owner',
-              onPress: async () => {
-                await becomeOwner();
-                setTimeout(() => {
-                  router.replace('/(tabs)');
-                }, 1500);
-              },
-            },
-          ]
-        );
+        await becomeOwner(locationData?.name || 'the location');
+          setTimeout(() => {
+            router.replace('/(tabs)');
+          }, 1500);
       } else if (result === 'win') {
         Alert.alert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
           {
@@ -480,14 +743,28 @@ export default function BattleArenaScreen() {
       }
     } catch (error) {
       console.error('Error submitting battle result:', error);
-      Alert.alert('Error', 'Failed to submit battle result. Please try again.');
+      
+      // More specific error handling
+      if (error.message.includes('401')) {
+        Alert.alert('Authentication Error', 'Your session has expired. Please log in again.');
+      } else if (error.message.includes('400')) {
+        Alert.alert('Invalid Request', 'Battle request was invalid. Please try again.');
+      } else if (error.message.includes('404')) {
+        Alert.alert('Location Not Found', 'This location no longer exists.');
+      } else if (error.message.includes('429')) {
+        Alert.alert('Too Many Requests', 'Please wait before battling again.');
+      } else {
+        Alert.alert('Battle Error', `Failed to submit battle result: ${error.message}`);
+      }
     }
   };
 
-  const becomeOwner = async () => {
+  const becomeOwner = async (locationName: string) => {
     if (!userToken || !id) return;
 
     try {
+      console.log('Becoming owner of location:', id);
+      
       const response = await fetch(`${databaseUrl}/api/interactions/become_owner`, {
         method: 'POST',
         headers: {
@@ -499,14 +776,24 @@ export default function BattleArenaScreen() {
         }),
       });
 
+      console.log('Become owner response status:', response.status);
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Become owner error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
 
+      const result = await response.json();
+      console.log('Become owner result:', result);
+      
+      // Refresh location data after becoming owner
+      console.log('Refreshing location data after becoming owner...');
+      await fetchLocationData();
+      
       Alert.alert('Success!', 'You are now an owner of this location!');
     } catch (error) {
       console.error('Error becoming owner:', error);
-      Alert.alert('Error', 'Failed to become owner of this location.');
     }
   };
 
@@ -591,8 +878,13 @@ export default function BattleArenaScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Battle Arena</Text>
-      <Text style={styles.subtitle}>{title || locationData?.name}</Text>
+      <View style={styles.headerSection}>
+        <Text style={styles.title}>⚔️ Battle Arena</Text>
+        <Text style={styles.subtitle}>{title || locationData?.name}</Text>
+        <Text style={styles.description}>
+          1. Challenge the defending champion to capture this location! {'\n'}2. Tap the Attack button to deal damage. {'\n'}3. Defeat them to capture this location!
+        </Text>
+      </View>
 
       {/* Battle Timer */}
       {battleStarted && !battleResult && (
@@ -607,11 +899,6 @@ export default function BattleArenaScreen() {
       <View style={styles.battleField}>
         {!battleStarted && !battleResult && (
           <View style={styles.startContainer}>
-            <Text style={styles.instructions}>
-              Battle with the defending champion!{'\n'}
-              Tap the Attack button to deal damage.{'\n'}
-              Defeat them to capture this location!
-            </Text>
             <TouchableOpacity style={styles.startButton} onPress={startBattle}>
               <Text style={styles.startButtonText}>Begin Battle</Text>
             </TouchableOpacity>
@@ -634,7 +921,6 @@ export default function BattleArenaScreen() {
                 <View style={[styles.healthFill, { width: `${playerHealth}%`, backgroundColor: '#4CAF50' }]} />
               </View>
               <Text style={styles.healthText}>HP: {playerHealth}/100</Text>
-              {/* <Text style={styles.teamText}>{userInfo.team}</Text> */}
             </View>
 
             <Text style={styles.vsText}>VS</Text>
@@ -646,7 +932,6 @@ export default function BattleArenaScreen() {
                 <View style={[styles.healthFill, { width: `${enemyHealth}%`, backgroundColor: '#F44336' }]} />
               </View>
               <Text style={styles.healthText}>HP: {enemyHealth}/100</Text>
-              {/* <Text style={styles.teamText}>{enemyInfo.team}</Text> */}
             </View>
           </View>
         )}
@@ -666,6 +951,9 @@ export default function BattleArenaScreen() {
             <Text style={styles.resultSubtext}>
               Health Remaining: {playerHealth}/100
             </Text>
+            <Text style={styles.resultSubtext}>
+              Total Attacks: {tapCount}
+            </Text>
           </View>
         )}
       </View>
@@ -677,238 +965,365 @@ export default function BattleArenaScreen() {
             <Text style={styles.exitButtonText}>Exit Arena</Text>
           </TouchableOpacity>
         ) : (
-          <Animated.View style={animatedButtonStyle}>
-            <TouchableOpacity 
-              style={styles.attackButton} 
-              onPress={playerAttack}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.attackButtonText}>Attack!</Text>
-            </TouchableOpacity>
-          </Animated.View>
+          <View style={styles.attackButtonContainer}>
+            {/* Debug info */}
+            {__DEV__ && (
+              <Text style={{ color: 'white', position: 'absolute', top: -30 }}>
+                Sparkles: {sparkles.length}, Taps: {tapCount}
+              </Text>
+            )}
+            
+            {/* Sparkles with different shapes */}
+            {sparkles.map((sparkle, index) => {
+              const sparkleShape = index % 4; // 4 different shapes
+              return (
+                <Animated.View
+                  key={sparkle.id}
+                  style={[
+                    styles.sparkle,
+                    sparkleShape === 0 && styles.sparkleCircle,
+                    sparkleShape === 1 && styles.sparkleSquare,
+                    sparkleShape === 2 && styles.sparkleDiamond,
+                    sparkleShape === 3 && styles.sparkleStar,
+                    {
+                      backgroundColor: sparkle.color,
+                      shadowColor: sparkle.color,
+                      shadowOpacity: 0.8,
+                      shadowRadius: 4,
+                      shadowOffset: { width: 0, height: 0 },
+                      elevation: 8,
+                      transform: [
+                        { translateX: sparkle.x },
+                        { translateY: sparkle.y },
+                        { scale: sparkle.scale },
+                        { rotate: `${index * 45}deg` }, // Different rotation for each sparkle
+                      ],
+                      opacity: sparkle.opacity,
+                    },
+                  ]}
+                />
+              );
+            })}
+            
+            {/* Attack Button */}
+            <Animated.View style={animatedButtonStyle}>
+              <TouchableOpacity 
+                style={[
+                  styles.attackButton,
+                  { 
+                    backgroundColor: getButtonColor(),
+                    shadowColor: getButtonColor(),
+                    shadowOpacity: 0.6,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 0 },
+                  }
+                ]} 
+                onPress={playerAttack}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.attackButtonText}>Attack!</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
         )}
       </View>
-    </View>
+      </View>
   );
 }
-
-// ...existing styles remain the same...
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
-    padding: 20,
-    paddingTop: 50, // Add top padding for safe area
+    backgroundColor: Colors.dark.background,
+    padding: 24,
+    paddingTop: 60,
+  },
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 215, 0, 0.2)',
   },
   title: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 6,
+    letterSpacing: 1,
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 22,
     color: '#FFD700',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
+    fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+    letterSpacing: 0.5,
+  },
+  description: {
+    fontSize: 16,
+    color: '#ccc',
+    textAlign: 'left',
+    fontWeight: '500',
+    opacity: 0.9,
+    paddingHorizontal: 20,
+    lineHeight: 22,
   },
   timerContainer: {
     alignItems: 'center',
-    marginBottom: 15,
-    padding: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
   },
   timerText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFD700',
+    letterSpacing: 1,
   },
   battleField: {
     flex: 1,
     justifyContent: 'center',
-    minHeight: 400, // Ensure minimum height
-    paddingVertical: 20,
+    minHeight: 400,
+    paddingVertical: 24,
   },
   combatArea: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    minHeight: 200,
+    paddingHorizontal: 24,
+    minHeight: 240,
   },
   startContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 32,
   },
   instructions: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     textAlign: 'center',
-    marginBottom: 30,
-    lineHeight: 24,
-    paddingHorizontal: 10,
+    marginBottom: 32,
+    lineHeight: 28,
+    paddingHorizontal: 16,
+    fontWeight: '500',
+    opacity: 0.9,
   },
   startButton: {
     backgroundColor: '#4CAF50',
-    paddingHorizontal: 40,
-    paddingVertical: 15,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
     borderRadius: 25,
-    shadowColor: '#000',
+    shadowColor: '#4CAF50',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    minWidth: 200,
+    minWidth: 160,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   startButtonText: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   playerSide: {
     alignItems: 'center',
     flex: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: 16,
     justifyContent: 'center',
   },
   enemySide: {
     alignItems: 'center',
     flex: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: 16,
     justifyContent: 'center',
   },
   playerName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 12,
     color: '#4CAF50',
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   enemyName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 12,
     color: '#F44336',
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   playerImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 10,
-    borderWidth: 2,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    marginBottom: 16,
+    borderWidth: 3,
     borderColor: '#4CAF50',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   enemyImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 10,
-    borderWidth: 2,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    marginBottom: 16,
+    borderWidth: 3,
     borderColor: '#F44336',
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   vsText: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#FFD700',
     textAlign: 'center',
-    marginVertical: 15,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    marginVertical: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
     textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
+    textShadowRadius: 6,
+    letterSpacing: 2,
   },
   healthBar: {
-    width: 100,
-    height: 10,
+    width: 120,
+    height: 12,
     backgroundColor: '#333',
-    borderRadius: 5,
-    marginBottom: 6,
+    borderRadius: 6,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#555',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   healthFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 5,
   },
   healthText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   teamText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#ccc',
     textAlign: 'center',
+    opacity: 0.8,
   },
   resultContainer: {
     alignItems: 'center',
-    marginVertical: 20,
-    padding: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 15,
-    marginHorizontal: 10,
+    marginVertical: 24,
+    padding: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 20,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   resultText: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 16,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+    letterSpacing: 1,
   },
   resultSubtext: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#ccc',
-    marginBottom: 4,
+    marginBottom: 8,
     textAlign: 'center',
+    fontWeight: '500',
+    opacity: 0.9,
   },
   controls: {
     alignItems: 'center',
-    paddingBottom: 40,
-    paddingTop: 20,
-    marginTop: 'auto', // Push to bottom
+    paddingBottom: 50,
+    paddingTop: 24,
+    marginTop: 'auto',
   },
   attackButton: {
     backgroundColor: '#FF5722',
-    paddingHorizontal: 40,
-    paddingVertical: 18,
-    borderRadius: 30,
+    paddingHorizontal: 48,
+    paddingVertical: 20,
+    borderRadius: 35,
+    shadowColor: '#FF5722',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 12,
+    minWidth: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  attackButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  exitButton: {
+    backgroundColor: '#666',
+    paddingHorizontal: 36,
+    paddingVertical: 16,
+    borderRadius: 28,
+    minWidth: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    minWidth: 150,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  attackButtonText: {
+  exitButtonText: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
-  },
-  exitButton: {
-    backgroundColor: '#666',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
-    minWidth: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    letterSpacing: 0.5,
   },
 });
