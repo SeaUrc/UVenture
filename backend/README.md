@@ -28,13 +28,44 @@ python app.py
 
 The server will start on `http://localhost:5001`
 
-## Endpoints
+## API Endpoints
 
-- `GET /` - Returns a welcome message
-- `GET /health` - Health check endpoint (includes Supabase status)
-- `GET /test-supabase` - Test Supabase connection
-- `GET /users` - Get all users from Supabase
-- `POST /users` - Create a new user in Supabase
+All API endpoints are prefixed with `/api`:
+
+### Authentication (`/api/auth`)
+- `POST /api/auth/login` - User login
+- `POST /api/auth/register` - User registration  
+- `POST /api/auth/logout` - User logout
+
+### Profile (`/api/profile`)
+- `GET /api/profile/` - Get user profile
+- `PUT /api/profile/` - Update user profile
+- `GET /api/profile/stats` - Get user statistics
+
+### Locations (`/api/locations`)
+- `GET /api/locations/` - Get all locations
+- `GET /api/locations/<id>` - Get specific location
+- `POST /api/locations/` - Create new location
+- `POST /api/locations/nearby` - Get nearby locations
+
+### Battles (`/api/battles`)
+- `GET /api/battles/` - Get all battles
+- `GET /api/battles/<id>` - Get specific battle
+- `POST /api/battles/` - Create new battle
+- `POST /api/battles/<id>/join` - Join a battle
+- `POST /api/battles/<id>/result` - Submit battle result
+
+### Teams (`/api/teams`)
+- `GET /api/teams/` - Get all teams
+- `GET /api/teams/<id>` - Get specific team
+- `POST /api/teams/` - Create new team
+- `GET /api/teams/<id>/members` - Get team members
+- `POST /api/teams/<id>/join` - Join a team
+- `POST /api/teams/<id>/leave` - Leave a team
+
+### System
+- `GET /` - API information and available endpoints
+- `GET /health` - Health check (includes Supabase status)
 
 ## Supabase Configuration
 
