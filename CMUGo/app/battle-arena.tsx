@@ -1116,15 +1116,13 @@ const addNeonIntensity = (color: string) => {
       
       if (battleResponse.message === 'win' && result === 'win') {
         await becomeOwner(locationData?.name || 'the location');
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> e7acfc5b111a1705d30a9f704cd895b2f5276643
           setTimeout(() => {
             setInitialChampionProfile(null);
-            router.back();
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)');
+            }
           }, 1500);
         exitBattle();
 
@@ -1136,7 +1134,11 @@ const addNeonIntensity = (color: string) => {
               exitBattle();
               setTimeout(() => {
                 setInitialChampionProfile(null);
-                router.back();
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/(tabs)');
+                }
               }, 1000);
             }
           }
@@ -1153,7 +1155,11 @@ const addNeonIntensity = (color: string) => {
                 exitBattle();
                 setTimeout(() => {
                   // Don't clear initialChampionProfile when player loses - champion stays the same
-                  router.back();
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    router.replace('/(tabs)');
+                  }
                 }, 1000);
               }
             }
