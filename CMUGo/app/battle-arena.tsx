@@ -82,6 +82,10 @@ export default function BattleArenaScreen() {
   const [superAttackCharge, setSuperAttackCharge] = useState(0);
   const maxSuperAttackCharge = 5; // Requires 5 charges for super attack
   
+  // Basic charged attack state (for all players)
+  const [basicChargedAttackCharge, setBasicChargedAttackCharge] = useState(0);
+  const maxBasicChargedAttackCharge = 10; // Requires 10 charges for basic charged attack
+  
   // Battle data
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [strongestOwnerProfile, setStrongestOwnerProfile] = useState<ProfileData | null>(null);
@@ -629,6 +633,27 @@ const addNeonIntensity = (color: string) => {
     };
   }, [battleStarted, battleResult, enemyHealth, playerHealth]);
 
+  // Basic charged attack decay effect
+  useEffect(() => {
+    let chargeDecayInterval: NodeJS.Timeout;
+    
+    if (battleStarted && !battleResult && basicChargedAttackCharge > 0) {
+      chargeDecayInterval = setInterval(() => {
+        setBasicChargedAttackCharge(prev => {
+          // Randomly decrease by 1-2 points
+          const decrease = Math.floor(Math.random() * 2) + 1;
+          return Math.max(0, prev - decrease);
+        });
+      }, 1000 + Math.random() * 1000); // Decay every 1-2 seconds
+    }
+
+    return () => {
+      if (chargeDecayInterval) {
+        clearInterval(chargeDecayInterval);
+      }
+    };
+  }, [battleStarted, battleResult, basicChargedAttackCharge]);
+
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -648,6 +673,7 @@ const addNeonIntensity = (color: string) => {
     setTapCount(0);
     setSparkles([]);
     setSuperAttackCharge(0); // Reset super attack charge for Arts players
+    setBasicChargedAttackCharge(0); // Reset basic charged attack charge for all players
     
     // Start button movement after a brief delay
     setTimeout(() => {
@@ -844,6 +870,9 @@ const addNeonIntensity = (color: string) => {
       setSuperAttackCharge(prev => Math.min(prev + 1, maxSuperAttackCharge));
     }
     
+    // For all players, increment basic charged attack charge
+    setBasicChargedAttackCharge(prev => Math.min(prev + 1, maxBasicChargedAttackCharge));
+    
     console.log(`Player attack: ${playerType} player - User strength ${userStrength} vs Enemy strength ${enemyStrength} = ${damage} damage (${tapCount} taps, ${tapMultiplier.toFixed(1)}x multiplier)`);
     
     const newEnemyHealth = Math.max(0, enemyHealth - damage);
@@ -876,6 +905,43 @@ const addNeonIntensity = (color: string) => {
     setSuperAttackCharge(0);
     
     console.log(`SUPER ATTACK! Arts player unleashes devastating attack for ${damage} damage!`);
+    
+    const newEnemyHealth = Math.max(0, enemyHealth - damage);
+    setEnemyHealth(newEnemyHealth);
+
+    if (newEnemyHealth <= 0) {
+        setBattleResult('victory');
+        submitBattleResult('win');
+        startCooldown();
+    }
+  };
+
+  // Basic charged attack function for all players
+  const playerBasicChargedAttack = () => {
+    if (battleResult || !battleStarted) return;
+    if (basicChargedAttackCharge < maxBasicChargedAttackCharge) return;
+
+    // Play attack animation and haptic feedback
+    playAttackAnimation();
+
+    const userStrength = userProfile?.strength || 10;
+    const enemyStrength = strongestOwnerProfile?.strength || 10;
+    const playerType = getPlayerType(userProfile?.team || null);
+    
+    let damage = calculateDamage(userStrength, enemyStrength);
+    // Basic charged attack does 2.5x damage (less than Arts super attack but still powerful)
+    damage = Math.round(damage * 2.5);
+    
+    // Apply special ability damage modifiers
+    if (playerType === 'STEM') {
+      // STEM players deal 50% more damage even on charged attacks
+      damage = Math.round(damage * 1.5);
+    }
+    
+    // Reset basic charged attack charge
+    setBasicChargedAttackCharge(0);
+    
+    console.log(`CHARGED ATTACK! Player unleashes charged attack for ${damage} damage!`);
     
     const newEnemyHealth = Math.max(0, enemyHealth - damage);
     setEnemyHealth(newEnemyHealth);
@@ -1013,27 +1079,19 @@ const addNeonIntensity = (color: string) => {
       
       if (battleResponse.message === 'win' && result === 'win') {
         await becomeOwner(locationData?.name || 'the location');
-<<<<<<< HEAD
           setTimeout(() => {
             setInitialChampionProfile(null);
             router.back();
           }, 1500);
-=======
-        exitBattle();
->>>>>>> 70910e264d34cb4e354ddc18cd03fcd3a77a7043
       } else if (result === 'win') {
         Alert.alert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
           {
             text: 'OK',
             onPress: () => {
-<<<<<<< HEAD
               setTimeout(() => {
                 setInitialChampionProfile(null);
                 router.back();
               }, 1000);
-=======
-              
->>>>>>> 70910e264d34cb4e354ddc18cd03fcd3a77a7043
             }
           }
         ]);
@@ -1045,14 +1103,10 @@ const addNeonIntensity = (color: string) => {
             {
               text: 'OK',
               onPress: () => {
-<<<<<<< HEAD
                 setTimeout(() => {
                   setInitialChampionProfile(null);
                   router.back();
                 }, 1000);
-=======
-                
->>>>>>> 70910e264d34cb4e354ddc18cd03fcd3a77a7043
               }
             }
           ]
@@ -1397,6 +1451,26 @@ const addNeonIntensity = (color: string) => {
             
             {/* Buttons Container */}
             <View style={styles.buttonsRow}>
+              {/* Basic Charged Attack Button for all players */}
+              <TouchableOpacity 
+                style={[
+                  styles.basicChargedAttackButton,
+                  { 
+                    opacity: basicChargedAttackCharge >= maxBasicChargedAttackCharge ? 1 : 0.5,
+                    backgroundColor: basicChargedAttackCharge >= maxBasicChargedAttackCharge ? '#00BFFF' : '#666666',
+                    shadowColor: basicChargedAttackCharge >= maxBasicChargedAttackCharge ? '#00BFFF' : '#666666',
+                  }
+                ]} 
+                onPress={playerBasicChargedAttack}
+                disabled={basicChargedAttackCharge < maxBasicChargedAttackCharge}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.basicChargedAttackButtonText}>⚡</Text>
+                <Text style={styles.basicChargedAttackChargeText}>
+                  {basicChargedAttackCharge}/{maxBasicChargedAttackCharge}
+                </Text>
+              </TouchableOpacity>
+              
               {/* Attack Button */}
               <Animated.View style={animatedButtonStyle}>
                 <TouchableOpacity 
@@ -2001,6 +2075,31 @@ superAttackChargeText: {
   fontSize: 10,
   color: '#000000',
   marginTop: 2,
+  fontWeight: '600',
+},
+
+// Basic charged attack button styles
+basicChargedAttackButton: {
+  width: 60,
+  height: 60,
+  borderRadius: 30,
+  alignItems: 'center',
+  justifyContent: 'center',
+  shadowOpacity: 0.6,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 8,
+},
+basicChargedAttackButtonText: {
+  fontSize: 18,
+  fontWeight: 'bold',
+  color: '#000000',
+  textAlign: 'center',
+},
+basicChargedAttackChargeText: {
+  fontSize: 9,
+  color: '#000000',
+  marginTop: 1,
   fontWeight: '600',
 },
 });
