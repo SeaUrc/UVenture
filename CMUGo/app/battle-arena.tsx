@@ -512,7 +512,7 @@ export default function BattleArenaScreen() {
                 <View style={[styles.healthFill, { width: `${playerHealth}%`, backgroundColor: '#4CAF50' }]} />
               </View>
               <Text style={styles.healthText}>HP: {playerHealth}/100</Text>
-              <Text style={styles.teamText}>{userInfo.team}</Text>
+              {/* <Text style={styles.teamText}>{userInfo.team}</Text> */}
             </View>
 
             <Text style={styles.vsText}>VS</Text>
@@ -524,7 +524,7 @@ export default function BattleArenaScreen() {
                 <View style={[styles.healthFill, { width: `${enemyHealth}%`, backgroundColor: '#F44336' }]} />
               </View>
               <Text style={styles.healthText}>HP: {enemyHealth}/100</Text>
-              <Text style={styles.teamText}>{enemyInfo.team}</Text>
+              {/* <Text style={styles.teamText}>{enemyInfo.team}</Text> */}
             </View>
           </View>
         )}
