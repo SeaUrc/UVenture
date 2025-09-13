@@ -258,8 +258,8 @@ const animateButtonMovement = () => {
       '#FF1E00', '#FF1900', '#FF1400', '#FF0F00', '#FF0A00', '#FF0000'
     ];
     
-    // Make progression slower - divide by 3 to make it take 3x more taps to progress
-    const slowedTapCount = Math.floor(totalTaps / 3);
+    // Make progression slower - divide by 2 to make it a bit faster than before
+    const slowedTapCount = Math.floor(totalTaps / 2);
     const colorIndex = Math.min(slowedTapCount, waveColors.length - 1);
     return waveColors[colorIndex];
   };
@@ -422,8 +422,8 @@ const getButtonColor = () => {
     '#FF1E00', '#FF1900', '#FF1400', '#FF0F00', '#FF0A00', '#FF0000'
   ];
   
-  // Same slower progression - divide by 3
-  const slowedTapCount = Math.floor(tapCount / 3);
+  // Same slower progression - divide by 2 for slightly faster progression
+  const slowedTapCount = Math.floor(tapCount / 2);
   const colorIndex = Math.min(slowedTapCount, colors.length - 1);
   return colors[colorIndex];
 };

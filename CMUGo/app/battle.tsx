@@ -65,6 +65,7 @@ export default function BattleScreen() {
   const [isUserStrongestOwner, setIsUserStrongestOwner] = useState(false);
   const [canBattle, setCanBattle] = useState(true);
   const [userJoinedTeam, setUserJoinedTeam] = useState(false);
+  const [waitingToJoin, setWaitingToJoin] = useState(false);
 
   useEffect(() => {
     const getAuthData = async () => {
@@ -100,8 +101,13 @@ export default function BattleScreen() {
       // User is considered to have "joined the team" if they're on the same team 
       // as the owner but can still join (meaning they joined recently)
       setUserJoinedTeam(sameTeam && notStrongestOwner && canJoinLocation);
+      
+      // User is waiting to join if they're on the same team, not the strongest owner,
+      // but can't join yet (can_join is false)
+      setWaitingToJoin(sameTeam && notStrongestOwner && !canJoinLocation);
     } else {
       setUserJoinedTeam(false);
+      setWaitingToJoin(false);
     }
   }, [locationData, userProfile, userId]);
 
@@ -415,6 +421,10 @@ export default function BattleScreen() {
     if (userJoinedTeam) {
       return { text: 'Join Your Team First', disabled: true };
     }
+    // Check if user is waiting to join (same team but can't join yet)
+    if (waitingToJoin) {
+      return { text: 'Waiting to Join Team', disabled: true };
+    }
     // Check if user is on the same team as the current owner (but can't join)
     if (userProfile && locationData && userProfile.team === locationData.owner_team.toString()) {
       return { text: 'Your Team Controls This Location', disabled: true };
@@ -459,6 +469,11 @@ export default function BattleScreen() {
                 {userJoinedTeam && (
                   <Text style={styles.joinAvailableText}>
                     ✨ You can join this defense team!
+                  </Text>
+                )}
+                {waitingToJoin && (
+                  <Text style={styles.waitingToJoinText}>
+                    ⏳ Waiting to join defense team...
                   </Text>
                 )}
               </View>
@@ -802,7 +817,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
-<<<<<<< HEAD
   defenderCountContainer: {
     alignItems: 'center',
     marginTop: 16,
@@ -841,18 +855,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
     fontWeight: '600',
-=======
-  championDisplay: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
   },
-  championText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFD700',
+  waitingToJoinText: {
+    fontSize: 12,
+    color: '#FFA726',
     textAlign: 'center',
-    marginTop: 15,
->>>>>>> 5a1ae85b01e8d88c0f4432d5dd91fb554ead6c7b
+    marginTop: 6,
+    fontWeight: '600',
+    opacity: 0.9,
   },
 });
