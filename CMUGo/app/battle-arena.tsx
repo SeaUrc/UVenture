@@ -36,7 +36,7 @@ const getEnemyAvatar = (teamColor: string) => {
   return avatarMap[teamColor] || 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png';
 };
 
-const BATTLE_COOLDOWN_MINUTES = 5;
+const BATTLE_COOLDOWN_MINUTES = 1;
 
 export default function BattleArenaScreen() {
   const { id, title, ownerTeam, ownerColor } = useLocalSearchParams();
