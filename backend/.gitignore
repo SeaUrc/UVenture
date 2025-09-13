@@ -24,3 +24,6 @@ instance/
 
 # Logs
 *.log
+
+# Other
+test_routes.py
