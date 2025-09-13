@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 type LocationData = {
   id: number;
   name: string;
-  image: string; 
+  image: string;
   latitude: number;
   longitude: number;
   owner_team: number;
@@ -23,8 +23,11 @@ type LocationData = {
   strongest_owner_id: number;
 };
 
-// Battle radius in meters
+// --- MODIFICATION: Define constants for map camera settings ---
 const BATTLE_RADIUS = 50;
+const MAP_ALTITUDE = 450; // Set a much higher initial elevation (in meters)
+const MAP_PITCH = 45; // Set the camera pitch
+
 const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
 
 export default function TabTwoScreen() {
@@ -44,7 +47,7 @@ export default function TabTwoScreen() {
   // Map following state
   const [isFollowingUser, setIsFollowingUser] = useState(true);
   const mapRef = useRef<MapView>(null);
-  const isAnimatingRef = useRef(false);
+  // const isAnimatingRef = useRef(false);
 
   // Get stored auth data and check if user is logged in
   useEffect(() => {
@@ -55,7 +58,6 @@ export default function TabTwoScreen() {
         const storedUsername = await AsyncStorage.getItem('username');
         
         if (!token || !id) {
-          // No authentication data, redirect to login
           router.replace('/login');
           return;
         }
@@ -73,16 +75,14 @@ export default function TabTwoScreen() {
     getAuthData();
   }, []);
 
+  
   // Logout function
   const handleLogout = async () => {
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Logout',
           style: 'destructive',
@@ -100,36 +100,27 @@ export default function TabTwoScreen() {
   };
 
   // Fetch locations from database
+  const fetchLocations = async () => {
+    try {
+      const response = await fetch(`${databaseUrl}/api/locations/get_locations`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setLocations(data.data || []);
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      Alert.alert('Error', 'Failed to load locations from server');
+    }
+  };
+
   useEffect(() => {
     if (!userToken || isAuthLoading) return;
-
-    const fetchLocations = async () => {
-      try {
-        console.log('Fetching locations from database...');
-        const response = await fetch(`${databaseUrl}/api/locations/get_locations`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        // console.log('Fetched locations:', data.data);
-        setLocations(data.data || []);
-      } catch (error) {
-        console.error('Error fetching locations:', error);
-        Alert.alert('Error', 'Failed to load locations from server');
-      }
-    };
-
     fetchLocations();
+    const interval = setInterval(fetchLocations, 30000); // Refresh locations every 30 seconds
+    return () => clearInterval(interval);
   }, [userToken, isAuthLoading]);
 
-  // ...existing code... (keep all the other functions unchanged)
   const handleBattleStart = async (locationData: LocationData) => {
     if (!userToken) {
       Alert.alert('Authentication Required', 'Please log in to battle for locations');
@@ -150,360 +141,178 @@ export default function TabTwoScreen() {
     });
   };
 
-  // Battle function that uses the API
-  const handleBattle = async (locationData: LocationData, score: number = 100) => {
-    if (!userToken) {
-      Alert.alert('Error', 'You must be logged in to battle');
-      return;
-    }
-
-    try {
-      const response = await fetch(`${databaseUrl}/api/interactions/battle`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userToken}`,
-        },
-        body: JSON.stringify({
-          id: locationData.id,
-          score: score,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.message === 'win') {
-        Alert.alert(
-          'Victory!', 
-          `You have successfully captured ${locationData.name}!`,
-          [
-            {
-              text: 'Become Owner',
-              onPress: () => becomeOwner(locationData.id),
-            },
-            {
-              text: 'OK',
-              style: 'cancel',
-            },
-          ]
-        );
-      } else {
-        Alert.alert('Defeat', `You were defeated at ${locationData.name}. Train harder and try again!`);
-      }
-
-      // Refresh locations after battle
-      setTimeout(() => {
-        fetchLocations();
-      }, 1000);
-
-    } catch (error) {
-      console.error('Battle error:', error);
-      Alert.alert('Error', 'Battle failed. Please try again.');
-    }
-  };
-
-  // Become owner function
-  const becomeOwner = async (locationId: number) => {
-    if (!userToken) {
-      Alert.alert('Error', 'You must be logged in');
-      return;
-    }
-
-    try {
-      const response = await fetch(`${databaseUrl}/api/interactions/become_owner`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userToken}`,
-        },
-        body: JSON.stringify({
-          id: locationId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      Alert.alert('Success', 'You are now an owner of this location!');
-      
-      // Refresh locations
-      setTimeout(() => {
-        fetchLocations();
-      }, 1000);
-
-    } catch (error) {
-      console.error('Become owner error:', error);
-      Alert.alert('Error', 'Failed to become owner. Please try again.');
-    }
-  };
-
-  // Refresh locations function
-  const fetchLocations = async () => {
-    try {
-      const response = await fetch(`${databaseUrl}/api/locations/get_locations`);
-      const data = await response.json();
-      setLocations(data.data || []);
-    } catch (error) {
-      console.error('Error refreshing locations:', error);
-    }
-  };
-
   useEffect(() => {
-    fetchLocations();
-    const interval = setInterval(fetchLocations, 30000);
-    return () => clearInterval(interval);
-  }, [])
-
-  useEffect(() => {
-  let locationSubscription: Location.LocationSubscription | null = null;
-
-  if (isFollowingUser && location) {
-    Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: 1000,
-        distanceInterval: 1,
-      },
-      (newLocation) => {
-        setLocation(newLocation);
-        isAnimatingRef.current = true;
-        
-        mapRef.current?.animateToRegion({
-          latitude: newLocation.coords.latitude,
-          longitude: newLocation.coords.longitude,
-          latitudeDelta: 0.001,
-          longitudeDelta: 0.001,
-        }, 1000);
-        
-        setTimeout(() => {
-          isAnimatingRef.current = false;
-        }, 1100);
+    let locationSubscription: Location.LocationSubscription | null = null;
+  
+    if (isFollowingUser) {
+      Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 1000,
+          distanceInterval: 1,
+        },
+        (newLocation) => {
+          setLocation(newLocation);
+          // Animate camera without needing the isAnimatingRef
+          mapRef.current?.animateCamera({
+            center: {
+              latitude: newLocation.coords.latitude,
+              longitude: newLocation.coords.longitude,
+            },
+            pitch: MAP_PITCH,
+            altitude: MAP_ALTITUDE,
+          }, { duration: 1000 });
+        }
+      ).then(subscription => {
+        locationSubscription = subscription;
+      });
+    }
+  
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
       }
-    ).then(subscription => {
-      locationSubscription = subscription;
-    });
-  }
+    };
+  }, [isFollowingUser]);
 
-  return () => {
-    if (locationSubscription) {
-      locationSubscription.remove();
+  const handleManualPan = () => {
+    // If user is dragging and we are currently following, turn it off.
+    if (isFollowingUser) {
+      setIsFollowingUser(false);
     }
   };
-}, [isFollowingUser]);
 
-const handleRegionChange = () => {
-  if (isFollowingUser && !isAnimatingRef.current) {
-    setIsFollowingUser(false);
-  }
-};
+  // const handleRegionChange = () => {
+  //   if (isFollowingUser && !isAnimatingRef.current) {
+  //     setIsFollowingUser(false);
+  //   }
+  // };
+  
+  const toggleFollowUser = () => {
+    // This function enables tracking if it's currently off
+    if (!isFollowingUser && location) {
+      setIsFollowingUser(true);
+      
+      mapRef.current?.animateCamera({
+        center: {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        },
+        pitch: MAP_PITCH,
+        altitude: MAP_ALTITUDE, 
+      }, { duration: 1000 });
+    }
+  };
 
-const toggleFollowUser = () => {
-  if (!isFollowingUser && location) {
-    setIsFollowingUser(true);
-    isAnimatingRef.current = true;
-    
-    mapRef.current?.animateToRegion({
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
-      latitudeDelta: 0.001,
-      longitudeDelta: 0.001,
-    }, 1000);
-    
-    setTimeout(() => {
-      isAnimatingRef.current = false;
-    }, 1100);
-  } else {
-    setIsFollowingUser(!isFollowingUser);
-  }
-};
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371e3;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const R = 6371e3;
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
             Math.cos(φ1) * Math.cos(φ2) *
             Math.sin(Δλ/2) * Math.sin(Δλ/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-  return R * c;
-};
+    return R * c;
+  };
 
-const isWithinBattleRadius = (locationData: LocationData): boolean => {
-  if (!location) return false;
-  
-  const distance = calculateDistance(
-    location.coords.latitude,
-    location.coords.longitude,
-    locationData.latitude,
-    locationData.longitude
-  );
-  
-  return distance <= BATTLE_RADIUS;
-};
-
-const handleMarkerPress = (locationData: LocationData) => {
-  const withinRadius = isWithinBattleRadius(locationData);
-  
-  if (withinRadius) {
-    Alert.alert(
-      locationData.name,
-      `Owned by: ${locationData.owner_team_name}\nOwners: ${locationData.owner_count}\n\n✅ You are within battle range!`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Battle',
-          style: 'default',
-          onPress: () => handleBattleStart(locationData),
-        },
-      ],
-      { cancelable: true }
-    );
-  } else {
+  const isWithinBattleRadius = (locationData: LocationData): boolean => {
+    if (!location) return false;
+    
     const distance = calculateDistance(
-      location!.coords.latitude,
-      location!.coords.longitude,
+      location.coords.latitude,
+      location.coords.longitude,
       locationData.latitude,
       locationData.longitude
     );
     
-    Alert.alert(
-      locationData.name,
-      `Owned by: ${locationData.owner_team_name}\nOwners: ${locationData.owner_count}\n\n❌ You are ${Math.round(distance)}m away. Get within ${BATTLE_RADIUS}m to battle!`,
-      [
-        {
-          text: 'OK',
-          style: 'default',
-        },
-      ]
-    );
-  }
-};
+    return distance <= BATTLE_RADIUS;
+  };
+
+  const handleMarkerPress = (locationData: LocationData) => {
+    const withinRadius = isWithinBattleRadius(locationData);
+    
+    if (withinRadius) {
+      Alert.alert(
+        locationData.name,
+        `Owned by: ${locationData.owner_team_name}\nOwners: ${locationData.owner_count}\n\n✅ You are within battle range!`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Battle', style: 'default', onPress: () => handleBattleStart(locationData) },
+        ],
+        { cancelable: true }
+      );
+    } else {
+      const distance = calculateDistance(
+        location!.coords.latitude,
+        location!.coords.longitude,
+        locationData.latitude,
+        locationData.longitude
+      );
+      
+      Alert.alert(
+        locationData.name,
+        `Owned by: ${locationData.owner_team_name}\nOwners: ${locationData.owner_count}\n\n❌ You are ${Math.round(distance)}m away. Get within ${BATTLE_RADIUS}m to battle!`,
+        [{ text: 'OK', style: 'default' }]
+      );
+    }
+  };
 
   useEffect(() => {
     if (isAuthLoading) return;
-
     (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setErrorMsg('Permission to access location was denied');
-          setIsLoading(false);
-          return;
-        }
-
-        const currentLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        
-        setLocation(currentLocation);
-        setErrorMsg(null);
-      } catch (error) {
-        setErrorMsg('Error getting location: ' + (error as Error).message);
-      } finally {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setErrorMsg('Permission to access location was denied');
         setIsLoading(false);
+        return;
       }
+
+      let currentLocation = await Location.getCurrentPositionAsync({});
+      setLocation(currentLocation);
+      setIsLoading(false);
     })();
   }, [isAuthLoading]);
 
-  // ...existing code... (keep all other functions the same)
 
-  // Don't render anything while checking authentication
-  if (isAuthLoading) {
-    return (
-      <ThemedView style={styles.container}>
-        <ThemedText style={[styles.title, { fontFamily: Fonts.rounded }]}>
-          Loading...
-        </ThemedText>
-      </ThemedView>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <ThemedView style={styles.container}>
-        <ThemedText style={[styles.title, { fontFamily: Fonts.rounded }]}>
-          Loading Map...
-        </ThemedText>
-      </ThemedView>
-    );
+  if (isLoading || isAuthLoading) {
+    return <ThemedView style={styles.container}><ThemedText>Loading...</ThemedText></ThemedView>;
   }
 
   if (errorMsg) {
-    return (
-      <ThemedView style={styles.container}>
-        <View style={styles.header}>
-          <ThemedText style={[styles.title, { fontFamily: Fonts.rounded }]}>
-            Explore
-          </ThemedText>
-          {username && (
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-              <ThemedText style={styles.logoutText}>Logout</ThemedText>
-            </TouchableOpacity>
-          )}
-        </View>
-        <ThemedText style={styles.errorText}>{errorMsg}</ThemedText>
-      </ThemedView>
-    );
+    return <ThemedView style={styles.container}><ThemedText>{errorMsg}</ThemedText></ThemedView>;
+  }
+  
+  if (!location) {
+    return <ThemedView style={styles.container}><ThemedText>Getting location...</ThemedText></ThemedView>;
   }
 
-  if (!location) {
-    return (
-      <ThemedView style={styles.container}>
-        {/* <View style={styles.header}>
-          <ThemedText style={[styles.title, { fontFamily: Fonts.rounded }]}>
-            Explore
-          </ThemedText>
-          {username && (
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-              <ThemedText style={styles.logoutText}>Logout</ThemedText>
-            </TouchableOpacity>
-          )}
-        </View> */}
-        <ThemedText style={styles.errorText}>Unable to get your location</ThemedText>
-      </ThemedView>
-    );
-  }
 
   return (
     <ThemedView style={styles.container}>
-      {/* <View style={styles.header}>
-        <ThemedText style={[styles.title, { fontFamily: Fonts.rounded }]}>
-          Explore
-        </ThemedText>
-        {username && (
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <ThemedText style={styles.logoutText}>Logout</ThemedText>
-          </TouchableOpacity>
-        )}
-      </View> */}
       <View style={styles.mapContainer}>
         <MapView
           ref={mapRef}
           provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
           style={styles.map}
-          initialRegion={{
-            latitude: location?.coords.latitude || 40.4433,
-            longitude: location?.coords.longitude || -79.9436,
-            latitudeDelta: 0.001,
-            longitudeDelta: 0.001,
+          initialCamera={{
+            center: {
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            },
+            pitch: MAP_PITCH,
+            heading: 0,
+            altitude: MAP_ALTITUDE,
           }}
           showsUserLocation={true}
           showsMyLocationButton={false}
-          onRegionChangeComplete={handleRegionChange}
+          // --- MODIFICATION: Use the specific onPanDrag event handler ---
+          onPanDrag={handleManualPan}
         >
-          {/* User location marker */}
+          {/* Markers and other map elements */}
           {location && (
             <Marker
               coordinate={{
@@ -511,25 +320,21 @@ const handleMarkerPress = (locationData: LocationData) => {
                 longitude: location.coords.longitude,
               }}
               title="You are here"
-              description="Your current location"
             >
               <View style={styles.userLocationMarker}>
                 <Image 
                   source={require('@/assets/images/icon.png')} 
                   style={styles.markerImage}
-                  resizeMode="cover"
                 />
               </View>
             </Marker>
           )}
 
-          {/* Database locations with team colors and images */}
-          {locations.map(locationData => {
+{locations.map(locationData => {
             const withinRadius = isWithinBattleRadius(locationData);
             
             return (
               <React.Fragment key={locationData.id}>
-                {/* Battle radius circle */}
                 {withinRadius && (
                   <Circle
                     center={{
@@ -543,7 +348,6 @@ const handleMarkerPress = (locationData: LocationData) => {
                   />
                 )}
                 
-                {/* Location marker with team color border */}
                 <Marker
                   coordinate={{
                     latitude: locationData.latitude,
@@ -598,16 +402,13 @@ const handleMarkerPress = (locationData: LocationData) => {
             />
           </View>
         </TouchableOpacity>
-
-
-    </View>
+      </View>
     </ThemedView>
   );
 }
 
+// Styles remain the same
 const styles = StyleSheet.create({
-
-  
   container: {
     flex: 1,
   },
@@ -687,11 +488,11 @@ const styles = StyleSheet.create({
   },
   followButton: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 35,
     left: 20,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -719,31 +520,5 @@ const styles = StyleSheet.create({
   followButtonImage: {
     width: 20,
     height: 20,
-  },
-  refreshButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-  },
-  refreshButtonText: {
-    fontSize: 24,
-    color: '#007AFF',
-    fontWeight: 'bold',
   },
 });
