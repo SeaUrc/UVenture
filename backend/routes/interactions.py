@@ -174,6 +174,7 @@ def become_owner():
         return jsonify({'error': 'Database not configured'}), 500
     
     try:
+        print('Request data:', request.get_json())
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No data provided'}), 400
@@ -237,7 +238,7 @@ def become_owner():
         # Update the location
         supabase.table('locations').update(update_data).eq('id', location_id).execute()
         
-        return '', 200
+        return jsonify({'message':"success"}), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

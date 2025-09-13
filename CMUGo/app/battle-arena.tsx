@@ -820,7 +820,14 @@ export default function BattleArenaScreen() {
   };
 
   const exitBattle = () => {
-    router.replace('/(tabs)');
+    // Reset to root and prevent iOS swipe back by going to a fresh tab navigation
+    if (router.canGoBack()) {
+      router.dismissAll();
+    }
+    // Use setTimeout to ensure dismissAll completes before navigation
+    setTimeout(() => {
+      router.replace('/(tabs)');
+    }, 50);
   };
 
   // Get display info for both fighters

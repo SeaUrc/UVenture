@@ -434,33 +434,53 @@ export default function BattleScreen() {
           </Text>
           
           <View style={styles.fightCard}>
-            {/* User Side */}
-            <View style={styles.fighterSide}>
-              <Image 
-                source={
-                  userInfo.image 
-                    ? { uri: userInfo.image }
-                    : require('../assets/images/icon.png')
-                } 
-                style={styles.fighterImage} 
-              />
-              <Text style={styles.fighterName}>{userInfo.name}</Text>
-              <Text style={styles.fighterTeam}>{userInfo.team}</Text>
-            </View>
+            {isUserStrongestOwner ? (
+              /* Champion Mode - Show only user profile */
+              <View style={styles.championDisplay}>
+                <View style={styles.fighterSide}>
+                  <Image 
+                    source={
+                      userInfo.image 
+                        ? { uri: userInfo.image }
+                        : require('../assets/images/icon.png')
+                    } 
+                    style={styles.fighterImage} 
+                  />
+                  <Text style={styles.fighterName}>{userInfo.name}</Text>
+                  <Text style={styles.fighterTeam}>{userInfo.team}</Text>
+                </View>
+                <Text style={styles.championText}>👑 Current Champion</Text>
+              </View>
+            ) : (
+              /* Battle Mode - Show both fighters */
+              <>
+                {/* User Side */}
+                <View style={styles.fighterSide}>
+                  <Image 
+                    source={
+                      userInfo.image 
+                        ? { uri: userInfo.image }
+                        : require('../assets/images/icon.png')
+                    } 
+                    style={styles.fighterImage} 
+                  />
+                  <Text style={styles.fighterName}>{userInfo.name}</Text>
+                  <Text style={styles.fighterTeam}>{userInfo.team}</Text>
+                </View>
 
-            <Text style={styles.vsText}>
-              {isUserOwner || isUserStrongestOwner ? '👑' : 'VS'}
-            </Text>
+                <Text style={styles.vsText}>VS</Text>
 
-            {/* Enemy Side */}
-            <View style={styles.fighterSide}>
-              <Image 
-                source={{ uri: enemyInfo.image }} 
-                style={styles.fighterImage} 
-              />
-              <Text style={styles.fighterName}>{enemyInfo.name}</Text>
-              <Text style={styles.fighterTeam}>{enemyInfo.team}</Text>
-            </View>
+                {/* Enemy Side */}
+                <View style={styles.fighterSide}>
+                  <Image 
+                    source={{ uri: enemyInfo.image }} 
+                    style={styles.fighterImage} 
+                  />
+                  <Text style={styles.fighterName}>{enemyInfo.name}</Text>
+                  <Text style={styles.fighterTeam}>{enemyInfo.team}</Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -742,5 +762,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  championDisplay: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  championText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFD700',
+    textAlign: 'center',
+    marginTop: 15,
   },
 });
