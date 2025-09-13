@@ -552,7 +552,7 @@ export default function BattleScreen() {
               {/* Defender count display */}
               <View style={styles.defenderCountContainer}>
                 <Text style={styles.defenderCountLabel}>Defenders</Text>
-                <Text style={styles.defenderCountValue}>{Math.max(0, (locationData.owner_count || 0) - 1)}</Text>
+                <Text style={styles.defenderCountValue}>{Math.max(0, (locationData.owner_count || 0))}</Text>
                 <Text style={styles.defenderCountSubtext}>
                   protecting this location
                 </Text>
