@@ -74,6 +74,11 @@ export default function HomeScreen() {
           <ThemedText type="defaultSemiBold">app-example</ThemedText>.
         </ThemedText>
       </ThemedView>
+
+      <ThemedView>
+        <ThemedText type="title">Profile Page</ThemedText>
+        <ThemedText>This is the profile page.</ThemedText>
+      </ThemedView>
     </ParallaxScrollView>
   );
 }
