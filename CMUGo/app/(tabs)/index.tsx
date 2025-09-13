@@ -606,6 +606,8 @@ const handleMarkerPress = (locationData: LocationData) => {
 }
 
 const styles = StyleSheet.create({
+
+  
   container: {
     flex: 1,
     paddingTop: 60,
@@ -624,10 +626,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   logoutButton: {
-    backgroundColor: '#FF3B30',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    backgroundColor: '#FF3B30',
+    borderRadius: 6,
   },
   logoutText: {
     color: '#fff',

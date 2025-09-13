@@ -4,44 +4,124 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useProfile } from './context/ProfileContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Mock enemy data
-const enemies = [
-  { id: 1, name: 'Fire Avatar', strength: 50, image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png' },
-  { id: 2, name: 'Water Avatar', strength: 45, image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png' },
-  { id: 3, name: 'Earth Avatar', strength: 48, image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png' },
-];
+const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
+
+type LocationData = {
+  id: number;
+  name: string;
+  image: string;
+  latitude: number;
+  longitude: number;
+  owner_team: number;
+  owner_team_color: string;
+  owner_team_name: string;
+  owner_count: number;
+  owned_since: string;
+  strongest_owner_id: number;
+};
+
+type ProfileData = {
+  username: string;
+  team: string;
+  image: string;
+};
+
+// Mock enemy avatars based on team colors
+const getEnemyAvatar = (teamColor: string) => {
+  const avatarMap = {
+    '#FF0000': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png', // Red team
+    '#0000FF': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png',  // Blue team
+    '#00FF00': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png',  // Green team
+    '#FFFF00': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png', // Yellow team
+  };
+  return avatarMap[teamColor] || 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png';
+};
 
 const BATTLE_COOLDOWN_MINUTES = 5;
 
 export default function BattleArenaScreen() {
-  const { arenaId, title } = useLocalSearchParams();
+  const { id, title, ownerTeam, ownerColor } = useLocalSearchParams();
   const { profileImage } = useProfile();
   const router = useRouter();
   
   // Battle state
   const [playerHealth, setPlayerHealth] = useState(100);
   const [enemyHealth, setEnemyHealth] = useState(100);
-  const [currentEnemy, setCurrentEnemy] = useState(null);
-  const [battleResult, setBattleResult] = useState(null);
+  const [locationData, setLocationData] = useState<LocationData | null>(null);
+  const [strongestOwnerProfile, setStrongestOwnerProfile] = useState<ProfileData | null>(null);
+  const [battleResult, setBattleResult] = useState<string | null>(null);
   
   // Battle timer state
   const [battleTime, setBattleTime] = useState(0);
+  
+  // Auth state
+  const [userToken, setUserToken] = useState<string | null>(null);
+  const [userId, setUserId] = useState<number | null>(null);
   
   // Cooldown state
   const [cooldownStarted, setCooldownStarted] = useState(false);
   const [cooldownTimeLeft, setCooldownTimeLeft] = useState(0);
 
   useEffect(() => {
-    // Randomly select an enemy when battle starts
-    const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)];
-    setCurrentEnemy(randomEnemy);
+    const getAuthData = async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        const userIdStr = await AsyncStorage.getItem('userId');
+        setUserToken(token);
+        setUserId(userIdStr ? parseInt(userIdStr) : null);
+      } catch (error) {
+        console.error('Error getting auth data:', error);
+      }
+    };
 
-    checkExistingCooldown();
+    getAuthData();
   }, []);
+
+  useEffect(() => {
+    if (id && userToken) {
+      fetchLocationData();
+      checkExistingCooldown();
+    }
+  }, [id, userToken]);
+
+  // Fetch location data from database
+  const fetchLocationData = async () => {
+    try {
+      const response = await fetch(`${databaseUrl}/api/locations/get_locations`);
+      if (!response.ok) throw new Error('Failed to fetch locations');
+      
+      const data = await response.json();
+      const location = data.data.find((loc: LocationData) => loc.id === parseInt(id as string));
+      
+      if (location) {
+        setLocationData(location);
+        // Fetch strongest owner profile
+        if (location.strongest_owner_id) {
+          fetchStrongestOwnerProfile(location.strongest_owner_id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching location data:', error);
+      Alert.alert('Error', 'Failed to load battle arena data');
+    }
+  };
+
+  // Fetch strongest owner profile
+  const fetchStrongestOwnerProfile = async (ownerId: number) => {
+    try {
+      const response = await fetch(`${databaseUrl}/api/profile/get_profile?id=${ownerId}`);
+      if (!response.ok) throw new Error('Failed to fetch profile');
+      
+      const profileData = await response.json();
+      setStrongestOwnerProfile(profileData);
+    } catch (error) {
+      console.error('Error fetching strongest owner profile:', error);
+    }
+  };
 
   // Battle timer effect
   useEffect(() => {
-    let battleTimer;
+    let battleTimer: NodeJS.Timeout;
     
     if (!battleResult) {
       battleTimer = setInterval(() => {
@@ -58,38 +138,35 @@ export default function BattleArenaScreen() {
 
   // Cooldown timer effect
   useEffect(() => {
-  let cooldownTimer;
-  
-  if (cooldownStarted && cooldownTimeLeft > 0) {
-    cooldownTimer = setInterval(() => {
-      setCooldownTimeLeft(prev => {
-        if (prev <= 1) {
-          // Cooldown finished, clean up
-          const cooldownKey = `arena_cooldown_${arenaId}`;
-          AsyncStorage.removeItem(cooldownKey).catch(console.error);
-          setCooldownStarted(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }
-
-  return () => {
-    if (cooldownTimer) {
-      clearInterval(cooldownTimer);
+    let cooldownTimer: NodeJS.Timeout;
+    
+    if (cooldownStarted && cooldownTimeLeft > 0) {
+      cooldownTimer = setInterval(() => {
+        setCooldownTimeLeft(prev => {
+          if (prev <= 1) {
+            setCooldownStarted(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
-  };
-}, [cooldownStarted, cooldownTimeLeft, arenaId]);
+
+    return () => {
+      if (cooldownTimer) {
+        clearInterval(cooldownTimer);
+      }
+    };
+  }, [cooldownStarted, cooldownTimeLeft]);
 
   // Enemy attack interval effect
   useEffect(() => {
-    let enemyAttackInterval;
+    let enemyAttackInterval: NodeJS.Timeout;
     
     if (!battleResult && enemyHealth > 0 && playerHealth > 0) {
       enemyAttackInterval = setInterval(() => {
         enemyAttack();
-      }, 800 + Math.random() * 1400); // Random interval between 0.8-2.2 seconds
+      }, 800 + Math.random() * 1400);
     }
 
     return () => {
@@ -99,13 +176,13 @@ export default function BattleArenaScreen() {
     };
   }, [battleResult, enemyHealth, playerHealth]);
 
-  const formatBattleTime = (seconds) => {
+  const formatBattleTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const formatCooldownTime = (seconds) => {
+  const formatCooldownTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
@@ -120,7 +197,7 @@ export default function BattleArenaScreen() {
 
   const checkExistingCooldown = async () => {
     try {
-      const cooldownKey = `arena_cooldown_${arenaId}`;
+      const cooldownKey = `arena_cooldown_${id}`;
       const cooldownData = await AsyncStorage.getItem(cooldownKey);
       
       if (cooldownData) {
@@ -128,13 +205,11 @@ export default function BattleArenaScreen() {
         const currentTime = Date.now();
         
         if (currentTime < cooldownEndTime) {
-          // Still on cooldown
           const timeLeft = Math.ceil((cooldownEndTime - currentTime) / 1000);
           setCooldownStarted(true);
           setCooldownTimeLeft(timeLeft);
-          setBattleResult('cooldown'); // New battle result state
+          setBattleResult('cooldown');
         } else {
-          // Cooldown expired, remove it
           await AsyncStorage.removeItem(cooldownKey);
         }
       }
@@ -146,14 +221,14 @@ export default function BattleArenaScreen() {
   const enemyAttack = () => {
     if (battleResult || playerHealth <= 0 || enemyHealth <= 0) return;
 
-    const enemyDamage = Math.floor(Math.random() * 12) + 3; // 3-15 damage
+    const enemyDamage = Math.floor(Math.random() * 12) + 3;
     setPlayerHealth(prevHealth => {
       const newPlayerHealth = Math.max(0, prevHealth - enemyDamage);
       
       if (newPlayerHealth <= 0) {
         setBattleResult('defeat');
-        submitBattleResult('defeat');
-        startCooldown(); // Start cooldown after defeat
+        submitBattleResult('lose');
+        startCooldown();
         Alert.alert('Defeat!', `You were defeated! You must wait ${BATTLE_COOLDOWN_MINUTES} minutes before battling here again.`);
       }
       
@@ -161,66 +236,117 @@ export default function BattleArenaScreen() {
     });
   };
 
-  const submitBattleResult = async (result) => {
+  const submitBattleResult = async (result: 'win' | 'lose') => {
+    if (!userToken || !id) return;
+
     try {
-      const response = await fetch(`YOUR_API_URL/arenas/${arenaId}/battle`, {
+      const response = await fetch(`${databaseUrl}/api/interactions/battle`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`,
         },
         body: JSON.stringify({
-          result: result,
-          playerTeam: 'Team Blue', // Get from user profile
-          points: result === 'victory' ? 10 : 0,
-          battleDuration: battleTime,
+          id: parseInt(id as string),
+          score: calculateBattleScore(result),
         }),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const battleResponse = await response.json();
+      
+      if (battleResponse.message === 'win' && result === 'win') {
+        // Offer to become owner
+        Alert.alert(
+          'Victory!',
+          'You have successfully captured this location! Do you want to become an owner?',
+          [
+            {
+              text: 'No Thanks',
+              style: 'cancel',
+            },
+            {
+              text: 'Become Owner',
+              onPress: () => becomeOwner(),
+            },
+          ]
+        );
+      }
     } catch (error) {
       console.error('Error submitting battle result:', error);
     }
   };
 
-  const storeCooldownData = async () => {
+  const becomeOwner = async () => {
+    if (!userToken || !id) return;
+
     try {
-        const cooldownSeconds = BATTLE_COOLDOWN_MINUTES * 60;
-        const cooldownEndTime = Date.now() + (cooldownSeconds * 1000);
-        const cooldownKey = `arena_cooldown_${arenaId}`;
-        
-        // Store locally with consistent key
-        await AsyncStorage.setItem(cooldownKey, JSON.stringify({
-        cooldownEndTime,
-        arenaId
-        }));
-        
-        // Also store on server
-        await fetch(`YOUR_API_URL/arenas/${arenaId}/cooldown`, {
+      const response = await fetch(`${databaseUrl}/api/interactions/become_owner`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`,
         },
         body: JSON.stringify({
-            userId: 'USER_ID',
-            cooldownEndTime,
+          id: parseInt(id as string),
         }),
-        });
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      Alert.alert('Success!', 'You are now an owner of this location!');
     } catch (error) {
-        console.error('Error storing cooldown:', error);
+      console.error('Error becoming owner:', error);
+      Alert.alert('Error', 'Failed to become owner of this location.');
     }
-    };
+  };
+
+  const calculateBattleScore = (result: 'win' | 'lose') => {
+    // Base score calculation
+    let score = 50; // Base score
+    
+    if (result === 'win') {
+      score += 50; // Win bonus
+      score += Math.max(0, 30 - battleTime); // Time bonus (faster = more points)
+      score += playerHealth; // Health bonus
+    } else {
+      score = Math.max(10, score - 20); // Minimum score for participation
+    }
+    
+    return score;
+  };
+
+  const storeCooldownData = async () => {
+    try {
+      const cooldownSeconds = BATTLE_COOLDOWN_MINUTES * 60;
+      const cooldownEndTime = Date.now() + (cooldownSeconds * 1000);
+      const cooldownKey = `arena_cooldown_${id}`;
+      
+      await AsyncStorage.setItem(cooldownKey, JSON.stringify({
+        cooldownEndTime,
+        arenaId: id
+      }));
+    } catch (error) {
+      console.error('Error storing cooldown:', error);
+    }
+  };
 
   const playerAttack = () => {
     if (battleResult) return;
 
-    const damage = Math.floor(Math.random() * 20) + 10; // 10-30 damage
+    const damage = Math.floor(Math.random() * 20) + 10;
     const newEnemyHealth = Math.max(0, enemyHealth - damage);
     setEnemyHealth(newEnemyHealth);
 
     if (newEnemyHealth <= 0) {
       setBattleResult('victory');
-      submitBattleResult('victory');
-      startCooldown(); // Start cooldown after victory
-      Alert.alert('Victory!', `You defeated the enemy and earned 10 points for your team! You must wait ${BATTLE_COOLDOWN_MINUTES} minutes before battling here again.`);
-      return;
+      submitBattleResult('win');
+      startCooldown();
     }
   };
 
@@ -228,11 +354,44 @@ export default function BattleArenaScreen() {
     router.back();
   };
 
+  // Get enemy display info
+  const getEnemyDisplayInfo = () => {
+    if (strongestOwnerProfile) {
+      return {
+        name: strongestOwnerProfile.username,
+        image: strongestOwnerProfile.image 
+          ? `data:image/png;base64,${strongestOwnerProfile.image}` 
+          : getEnemyAvatar(locationData?.owner_team_color || '#FF0000'),
+        team: strongestOwnerProfile.team,
+      };
+    }
+    
+    return {
+      name: locationData?.owner_team_name || 'Enemy Team',
+      image: getEnemyAvatar(locationData?.owner_team_color || '#FF0000'),
+      team: locationData?.owner_team_name || 'Unknown Team',
+    };
+  };
+
+  const enemyInfo = getEnemyDisplayInfo();
+
   return (
     <View style={styles.container}>
       <Text style={styles.locationTitle}>
-        Battle at {title || 'Arena'}
+        Battle at {title || locationData?.name || 'Arena'}
       </Text>
+
+      {/* Location Info */}
+      {locationData && (
+        <View style={styles.locationInfo}>
+          <Text style={styles.locationInfoText}>
+            Owned by: {locationData.owner_team_name} ({locationData.owner_count} owners)
+          </Text>
+          <Text style={styles.locationInfoText}>
+            Defending Champion: {strongestOwnerProfile?.username || 'Loading...'}
+          </Text>
+        </View>
+      )}
 
       {/* Battle Timer */}
       {!battleResult && !cooldownStarted && (
@@ -259,10 +418,9 @@ export default function BattleArenaScreen() {
         </View>
       )}
 
-      {/* Battle Field - Hide if on cooldown from start */}
+      {/* Battle Field */}
       {battleResult !== 'cooldown' && (
         <View style={styles.battleField}>
-          {/* ...existing battle field code... */}
           <View style={styles.playerSide}>
             <Text style={styles.playerName}>You</Text>
             <Image 
@@ -278,13 +436,13 @@ export default function BattleArenaScreen() {
           <Text style={styles.vsText}>VS</Text>
 
           <View style={styles.enemySide}>
-            <Text style={styles.enemyName}>{currentEnemy?.name || 'Enemy'}</Text>
-            <Image source={{ uri: currentEnemy?.image }} style={styles.enemyImage} />
+            <Text style={styles.enemyName}>{enemyInfo.name}</Text>
+            <Image source={{ uri: enemyInfo.image }} style={styles.enemyImage} />
             <View style={styles.healthBar}>
               <View style={[styles.healthFill, { width: `${enemyHealth}%`, backgroundColor: '#F44336' }]} />
             </View>
             <Text style={styles.healthText}>HP: {enemyHealth}/100</Text>
-            <Text style={styles.strengthText}>Strength: {currentEnemy?.strength || 0}</Text>
+            <Text style={styles.strengthText}>Team: {enemyInfo.team}</Text>
           </View>
         </View>
       )}
@@ -297,6 +455,9 @@ export default function BattleArenaScreen() {
           </Text>
           <Text style={styles.resultSubtext}>
             Battle completed in {formatBattleTime(battleTime)}
+          </Text>
+          <Text style={styles.resultSubtext}>
+            Score: {calculateBattleScore(battleResult === 'victory' ? 'win' : 'lose')}
           </Text>
         </View>
       )}
@@ -327,8 +488,20 @@ const styles = StyleSheet.create({
     fontSize: 24, 
     fontWeight: 'bold', 
     textAlign: 'center', 
-    marginBottom: 20,
+    marginBottom: 15,
     color: 'white'
+  },
+  locationInfo: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 15,
+  },
+  locationInfoText: {
+    color: '#ccc',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 3,
   },
   timerContainer: {
     alignItems: 'center',
@@ -457,6 +630,7 @@ const styles = StyleSheet.create({
   resultSubtext: {
     fontSize: 16,
     color: '#ccc',
+    marginBottom: 3,
   },
   controls: {
     alignItems: 'center',
