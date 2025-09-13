@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'expo-router';
 import { StyleSheet, View, Platform, Alert, Image, TouchableOpacity } from 'react-native';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useNavigation } from '@react-navigation/native';
 import { Fonts } from '@/constants/theme';
 
 type CustomMarker = {
@@ -45,6 +47,8 @@ export default function TabTwoScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const navigation = useNavigation();
+  const router = useRouter();
 
   // Example markers (can be fetched from API or state)
   const [markers, setMarkers] = useState<CustomMarker[]>(initMarkers);
@@ -66,6 +70,19 @@ export default function TabTwoScreen() {
         console.error('Error fetching markers:', error);
       });
   }, []);
+
+  const handleBattleStart = (marker: CustomMarker) => {
+    router.push({
+      pathname: '/battle',
+      params: {
+        id: marker.id.toString(),
+        latitude: marker.latitude.toString(),
+        longitude: marker.longitude.toString(),
+        title: marker.title,
+        description: marker.description,
+      },
+    });
+  };
 
   useEffect(() => {
     (async () => {
@@ -213,7 +230,7 @@ export default function TabTwoScreen() {
           {
             text: 'Battle',
             style: 'default',
-            onPress: () => handleBattle(marker),
+            onPress: () => handleBattleStart(marker),
           },
         ],
         { cancelable: true }
