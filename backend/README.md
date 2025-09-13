@@ -43,9 +43,22 @@ All API endpoints are prefixed with `/api`:
   - Error: `{"error": string}` (400/401/500)
 
 ### Profile (`/api/profile`)
-- `GET /api/profile/` - Get user profile
-- `PUT /api/profile/` - Update user profile
-- `GET /api/profile/stats` - Get user statistics
+- `POST /api/profile/set_picture` - Set profile picture (requires auth)
+  - Input: `{"image": "base64 image string"}`
+  - Success: `{}` (200)
+  - Error: `{"error": string}` (400/401/500)
+- `POST /api/profile/remove_picture` - Remove profile picture (requires auth)
+  - Input: `{}`
+  - Success: `{}` (200)
+  - Error: `{"error": string}` (401/500)
+- `POST /api/profile/set_team` - Set user team (requires auth)
+  - Input: `{"team": number}`
+  - Success: `{}` (200)
+  - Error: `{"error": string}` (400/401/500)
+- `POST /api/profile/get_profile` - Get user profile by ID
+  - Input: `{"id": number}`
+  - Success: `{"username": string, "team": number, "image": string, "strength": number}` (200)
+  - Error: `{"error": string}` (400/404/500)
 
 ### Locations (`/api/locations`)
 - `GET /api/locations/` - Get all locations
@@ -77,4 +90,24 @@ All API endpoints are prefixed with `/api`:
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Go to Settings > API to find your project URL and anon key
 3. Add these credentials to your `.env` file
-4. Create a `users` table in your Supabase database for the user endpoints to work
+4. Create a `users` table in your Supabase database with the following schema:
+
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    team INTEGER,
+    password_hash TEXT NOT NULL,
+    strength INTEGER DEFAULT 0,
+    image TEXT  -- For base64 profile pictures
+);
+```
+
+## Authentication
+
+For endpoints marked as "requires auth", include the JWT token in the Authorization header:
+```
+Authorization: Bearer <your_jwt_token>
+```
+
+Get the JWT token by calling `/api/auth/sign_in` with valid credentials.
