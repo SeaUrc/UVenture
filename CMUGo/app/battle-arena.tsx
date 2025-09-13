@@ -279,14 +279,18 @@ const animateButtonMovement = () => {
   // Create many more sparks
   const sparkCount = Math.min(5 + Math.floor(tapCount * 2), 15);
   
-  // Generate a unique timestamp-based base ID to prevent duplicates when spamming
-  const baseId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+  // Generate absolutely unique IDs using multiple entropy sources
+  const timestamp = performance.now();
+  const randomSeed = Math.floor(Math.random() * 1000000);
   
   for (let i = 0; i < sparkCount; i++) {
     const sparkleColor = getRealisticSparkColor();
     
+    // Create a truly unique ID by combining timestamp, counter, loop index, and random number
+    const uniqueId = Math.floor(timestamp * 1000000) + (sparkleIdCounter * 1000) + (i * 100) + Math.floor(Math.random() * 100);
+    
     const sparkle: Sparkle = {
-      id: baseId + i,
+      id: uniqueId,
       x: new Animated.Value(0),
       y: new Animated.Value(0),
       opacity: new Animated.Value(1),
@@ -410,9 +414,11 @@ const animateButtonMovement = () => {
     ]).start();
   }
   
-  setSparkleIdCounter(prev => prev + sparkCount);
+  // Update counter to help ensure unique IDs in future calls
+  setSparkleIdCounter(prev => prev + sparkCount + 1);
   setSparkles(prev => [...prev, ...newSparkles]);
   
+  // Clean up sparkles after animation
   setTimeout(() => {
     setSparkles(prev => 
       prev.filter(s => !newSparkles.some(ns => ns.id === s.id))
@@ -1136,6 +1142,7 @@ const addNeonIntensity = (color: string) => {
           }
         ]);
       } else {
+        // Player lost - champion remains the same, don't clear their profile
         showAlert(
           'Defeat',
           `You were defeated at ${locationData?.name || 'the location'}. Train harder and try again in ${BATTLE_COOLDOWN_MINUTES} minutes!`,
@@ -1143,16 +1150,9 @@ const addNeonIntensity = (color: string) => {
             {
               text: 'OK',
               onPress: () => {
-<<<<<<< HEAD
                 exitBattle();
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 2743fc6e8af851c29d94f3197090d1ab18931037
->>>>>>> e7acfc5b111a1705d30a9f704cd895b2f5276643
                 setTimeout(() => {
-                  setInitialChampionProfile(null);
+                  // Don't clear initialChampionProfile when player loses - champion stays the same
                   router.back();
                 }, 1000);
               }
