@@ -194,12 +194,13 @@ def become_owner():
         
         # Check if this user should become the strongest owner
         if current_strongest_owner_id:
-            # Get current strongest owner's strength
-            strongest_response = supabase.table('users').select('strength').eq('id', current_strongest_owner_id).execute()
-            if strongest_response.data:
-                current_strongest_strength = strongest_response.data[0].get('strength', 0)
-                if user_strength > current_strongest_strength:
-                    update_data['strongest_owner_id'] = user_id
+            # # Get current strongest owner's strength
+            # strongest_response = supabase.table('users').select('strength').eq('id', current_strongest_owner_id).execute()
+            # if strongest_response.data:
+            #     current_strongest_strength = strongest_response.data[0].get('strength', 0)
+            #     if user_strength > current_strongest_strength:
+            # STRONGEST OWNER IS NOW THE WINNER
+            update_data['strongest_owner_id'] = user_id
         else:
             # No current strongest owner, set this user
             update_data['strongest_owner_id'] = user_id
