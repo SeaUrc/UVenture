@@ -1,131 +1,226 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet, View } from 'react-native';
-import { useProfile } from '../context/ProfileContext';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { Fonts } from '@/constants/theme';
 
-export default function HomeScreen() {
-  const { profileImage } = useProfile();
+type Team = {
+  id: number;
+  name: string;
+  points: number;
+  rank: number;
+  color: string;
+  members: number;
+};
+
+// Dummy data for the leaderboard
+const dummyTeams: Team[] = [
+  { id: 1, name: 'MCS', points: 2450, rank: 1, color: '#FF6B6B', members: 12 },
+  { id: 2, name: 'SCS', points: 2180, rank: 2, color: '#4ECDC4', members: 15 },
+  { id: 3, name: 'Tepper', points: 1950, rank: 3, color: '#45B7D1', members: 8 },
+  { id: 4, name: 'Dietrich', points: 1820, rank: 4, color: '#96CEB4', members: 10 },
+  { id: 5, name: 'Heinz', points: 1650, rank: 5, color: '#FFEAA7', members: 7 },
+  { id: 6, name: 'CFA', points: 1420, rank: 6, color: '#DDA0DD', members: 9 },
+  { id: 7, name: 'Engineering', points: 1280, rank: 7, color: '#98D8C8', members: 11 },
+  { id: 8, name: 'Mellon', points: 1100, rank: 8, color: '#F7DC6F', members: 6 },
+];
+
+export default function LeaderboardScreen() {
+  const [teams, setTeams] = useState<Team[]>(dummyTeams);
+  const [isLoading, setIsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Sample fetch function for leaderboard data
+  const fetchLeaderboard = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Replace with your actual API endpoint
+      const response = await fetch('https://your-api-endpoint.com/leaderboard');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch leaderboard');
+      }
+      
+      const data = await response.json();
+      
+      // Transform API data to match our Team type
+      const leaderboardData: Team[] = data.teams.map((team: any, index: number) => ({
+        id: team.id,
+        name: team.name,
+        points: team.points,
+        rank: index + 1,
+        color: team.color || '#007AFF',
+        members: team.member_count || 0,
+      }));
+      
+      setTeams(leaderboardData);
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
+      // Keep dummy data on error
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Pull to refresh function
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchLeaderboard();
+    setRefreshing(false);
+  };
+
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchLeaderboard();
+  }, []);
+
+  const renderTeamItem = (team: Team) => (
+    <TouchableOpacity key={team.id} style={styles.teamItem}>
+      <View style={styles.rankContainer}>
+        <View style={[styles.rankBadge, { backgroundColor: team.color }]}>
+          <ThemedText style={styles.rankText}>#{team.rank}</ThemedText>
+        </View>
+      </View>
+      
+      <View style={styles.teamInfo}>
+        <ThemedText style={[styles.teamName, { fontFamily: Fonts.rounded }]}>
+          {team.name}
+        </ThemedText>
+        <ThemedText style={styles.memberCount}>
+          {team.members} members
+        </ThemedText>
+      </View>
+      
+      <View style={styles.pointsContainer}>
+        <ThemedText style={[styles.pointsText, { fontFamily: Fonts.rounded }]}>
+          {team.points.toLocaleString()}
+        </ThemedText>
+        <ThemedText style={styles.pointsLabel}>points</ThemedText>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.profileContainer}>
-        <View style={{ alignItems: 'center', marginBottom: 16 }}>
-          <Image
-            source={
-              profileImage
-                ? { uri: profileImage }
-                : require('@/assets/images/icon.png')
-            }
-            style={styles.profileImage}
-          />
-          <ThemedText type="subtitle">
-            {profileImage ? 'Your Profile Picture' : 'Default Profile Picture'}
+    <ThemedView style={styles.container}>
+      <View style={styles.header}>
+        <ThemedText 
+          type="defaultSemiBold" 
+          style={[styles.title, { fontFamily: Fonts.rounded }]}
+        >
+          Leaderboard
+        </ThemedText>
+        <ThemedText style={styles.subtitle}>
+          Team Rankings
+        </ThemedText>
+      </View>
+
+      <ScrollView 
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={styles.leaderboardContainer}>
+          {teams.map(renderTeamItem)}
+        </View>
+        
+        <View style={styles.footer}>
+          <ThemedText style={styles.footerText}>
+            Pull down to refresh
           </ThemedText>
         </View>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-
-      <ThemedView>
-        <ThemedText type="title">Profile Page</ThemedText>
-        <ThemedText>This is the profile page.</ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      </ScrollView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  header: {
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    lineHeight: 36, // Add proper line height
+  },
+  subtitle: {
+    fontSize: 16,
+    opacity: 0.7,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  leaderboardContainer: {
+    gap: 12,
+  },
+  teamItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  profileContainer: {
-    marginTop: 16,
-    marginBottom: 8,
+  rankContainer: {
+    marginRight: 16,
   },
-  profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 8,
+  rankBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  rankText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  teamInfo: {
+    flex: 1,
+  },
+  teamName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  memberCount: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  pointsContainer: {
+    alignItems: 'flex-end',
+  },
+  pointsText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#007AFF',
+  },
+  pointsLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 2,
+  },
+  footer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  footerText: {
+    fontSize: 14,
+    opacity: 0.5,
   },
 });
