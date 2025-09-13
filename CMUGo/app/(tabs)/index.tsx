@@ -259,7 +259,7 @@ export default function TabTwoScreen() {
   if (isFollowingUser && location) {
     Location.watchPositionAsync(
       {
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Balanced,
         timeInterval: 1000,
         distanceInterval: 1,
       },
@@ -398,7 +398,7 @@ const handleMarkerPress = (locationData: LocationData) => {
         }
 
         const currentLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+          accuracy: Location.Accuracy.Balanced,
         });
         
         setLocation(currentLocation);
@@ -610,8 +610,6 @@ const styles = StyleSheet.create({
   
   container: {
     flex: 1,
-    paddingTop: 60,
-    paddingHorizontal: 20,
   },
   header: {
     flexDirection: 'row',
@@ -638,9 +636,7 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     flex: 1,
-    borderRadius: 10,
     overflow: 'hidden',
-    marginBottom: 20,
   },
   map: {
     flex: 1,
