@@ -600,7 +600,7 @@ const handleMarkerPress = (locationData: LocationData) => {
         </TouchableOpacity>
 
 
-      </View>
+    </View>
     </ThemedView>
   );
 }
