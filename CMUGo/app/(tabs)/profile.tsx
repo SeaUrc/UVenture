@@ -8,18 +8,21 @@ const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
 
 type ProfileData = {
   username: string;
-  team: string;
+  team: number;
   image: string;
   strength: number;
-  total_score: number;
-  battles_won: number;
-  battles_lost: number;
-  locations_owned: number;
-  locations_conquered: number;
-  current_streak: number;
-  best_streak: number;
-  rank: string;
-  join_date: string;
+  wins: number;
+  losses: number;
+  defending: string[];
+  total_score?: number;
+  battles_won?: number;
+  battles_lost?: number;
+  locations_owned?: number;
+  locations_conquered?: number;
+  current_streak?: number;
+  best_streak?: number;
+  rank?: string;
+  join_date?: string;
 };
 
 type LocationData = {
@@ -333,9 +336,6 @@ export default function ProfileScreen() {
               } 
               style={styles.profileImage} 
             />
-            <View style={[styles.rankBadge, { backgroundColor: getRankColor(profileData.rank) }]}>
-              <Text style={styles.rankText}>{profileData.rank || 'Novice'}</Text>
-            </View>
           </View>
           
           <Text style={styles.username}>{profileData.username}</Text>
@@ -377,27 +377,12 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Strength</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{profileData.total_score || 0}</Text>
-              <Text style={styles.statLabel}>Total Score</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{getWinRate()}%</Text>
-              <Text style={styles.statLabel}>Win Rate</Text>
-            </View>
-          </View>
-
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text style={[styles.statValue, { color: '#4CAF50' }]}>{profileData.battles_won || 0}</Text>
+              <Text style={[styles.statValue, { color: '#4CAF50' }]}>{profileData.wins || 0}</Text>
               <Text style={styles.statLabel}>Wins</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={[styles.statValue, { color: '#F44336' }]}>{profileData.battles_lost || 0}</Text>
+              <Text style={[styles.statValue, { color: '#F44336' }]}>{profileData.losses || 0}</Text>
               <Text style={styles.statLabel}>Losses</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={[styles.statValue, { color: '#FFD700' }]}>{profileData.current_streak || 0}</Text>
-              <Text style={styles.statLabel}>Streak</Text>
             </View>
           </View>
         </View>
@@ -423,14 +408,14 @@ export default function ProfileScreen() {
           )}
         </View>
 
-      </ScrollView>
+        {/* Logout Button */}
+        <View style={styles.controls}>
+          <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Logout Button */}
-      <View style={styles.controls}>
-        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+      </ScrollView>
     </View>
   );
 }

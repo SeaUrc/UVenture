@@ -1,5 +1,6 @@
 import os
 import jwt
+import random
 from functools import wraps
 from flask import Blueprint, request, jsonify, g
 from datetime import datetime
@@ -54,6 +55,7 @@ def require_auth(f):
 def battle():
     """Start and end battle at some location, will change ownership if you win"""
     if not supabase:
+        print("oh nooo")
         return jsonify({'error': 'Database not configured'}), 500
     
     try:
@@ -117,12 +119,17 @@ def battle():
         # Determine if user wins
         wins = total_power > battle_threshold
         
+        # Calculate strength change (-1 to 3 inclusive, clamped between 0 and 100)
+        strength_change = random.randint(-1, 3)
+        new_strength = max(0, min(100, user_strength + strength_change))
+        
         # Update user's last_battle timestamp and battle stats
         if wins:
             # Increment wins count for the winner
             supabase.table('users').update({
                 'last_battle': datetime.utcnow().isoformat(),
-                'wins': current_wins + 1
+                'wins': current_wins + 1,
+                'strength': new_strength
             }).eq('id', user_id).execute()
             
             # Increment losses count for the defeated strongest owner
@@ -135,7 +142,8 @@ def battle():
             # Increment losses count for the challenger
             supabase.table('users').update({
                 'last_battle': datetime.utcnow().isoformat(),
-                'losses': current_losses + 1
+                'losses': current_losses + 1,
+                'strength': new_strength
             }).eq('id', user_id).execute()
         
         if wins:
@@ -155,6 +163,7 @@ def battle():
             return jsonify({'message': 'lose'}), 200
         
     except Exception as e:
+        print(str(e))
         return jsonify({'error': str(e)}), 500
 
 @interactions_bp.route('/become_owner', methods=['POST'])
