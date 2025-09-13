@@ -253,6 +253,9 @@ export default function BattleArenaScreen() {
     try {
       const battleScore = calculateBattleScore(result);
       
+      // Store cooldown BEFORE making the API call
+      await storeCooldownData();
+      
       const response = await fetch(`${databaseUrl}/api/interactions/battle`, {
         method: 'POST',
         headers: {
@@ -279,19 +282,49 @@ export default function BattleArenaScreen() {
             {
               text: 'No Thanks',
               style: 'cancel',
+              onPress: () => {
+                // Delay exit to ensure user sees the message
+                setTimeout(() => {
+                  router.back();
+                }, 1000);
+              }
             },
             {
               text: 'Become Owner',
-              onPress: () => becomeOwner(),
+              onPress: async () => {
+                await becomeOwner();
+                setTimeout(() => {
+                  router.back();
+                }, 1500);
+              },
             },
           ]
         );
       } else if (result === 'win') {
-        Alert.alert('Close Victory!', 'You won the battle but the location remains contested. Great effort!');
+        Alert.alert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
+          {
+            text: 'OK',
+            onPress: () => {
+              setTimeout(() => {
+                router.back();
+              }, 1000);
+            }
+          }
+        ]);
       } else {
         Alert.alert(
           'Defeat',
-          `You were defeated at ${locationData?.name || 'the location'}. Train harder and try again in ${BATTLE_COOLDOWN_MINUTES} minutes!`
+          `You were defeated at ${locationData?.name || 'the location'}. Train harder and try again in ${BATTLE_COOLDOWN_MINUTES} minutes!`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setTimeout(() => {
+                  router.back();
+                }, 1000);
+              }
+            }
+          ]
         );
       }
     } catch (error) {
@@ -327,8 +360,8 @@ export default function BattleArenaScreen() {
   };
 
   const startCooldown = () => {
-    const cooldownSeconds = BATTLE_COOLDOWN_MINUTES * 60;
-    storeCooldownData();
+    // This function is now called from submitBattleResult
+    // We don't need to call storeCooldownData here again
   };
 
   const storeCooldownData = async () => {
@@ -341,13 +374,21 @@ export default function BattleArenaScreen() {
         cooldownEndTime,
         locationId: id
       }));
+      
+      console.log(`Cooldown stored for location ${id}, ends at:`, new Date(cooldownEndTime));
     } catch (error) {
       console.error('Error storing cooldown:', error);
     }
   };
 
   const exitBattle = () => {
-    router.back();
+    // If there's a battle result, ensure we go back to map/location list
+    if (battleResult) {
+      // Go back multiple screens to ensure we're out of battle flow
+      router.replace('/(tabs)');
+    } else {
+      router.back();
+    }
   };
 
   // Get display info for both fighters
