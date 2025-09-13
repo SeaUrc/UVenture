@@ -254,12 +254,18 @@ export default function TabTwoScreen() {
   };
 
   useEffect(() => {
+    fetchLocations();
+    const interval = setInterval(fetchLocations, 30000);
+    return () => clearInterval(interval);
+  }, [])
+
+  useEffect(() => {
   let locationSubscription: Location.LocationSubscription | null = null;
 
   if (isFollowingUser && location) {
     Location.watchPositionAsync(
       {
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Balanced,
         timeInterval: 1000,
         distanceInterval: 1,
       },
@@ -398,7 +404,7 @@ const handleMarkerPress = (locationData: LocationData) => {
         }
 
         const currentLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+          accuracy: Location.Accuracy.Balanced,
         });
         
         setLocation(currentLocation);
@@ -593,13 +599,7 @@ const handleMarkerPress = (locationData: LocationData) => {
           </View>
         </TouchableOpacity>
 
-        {/* Refresh button */}
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={fetchLocations}
-        >
-          <ThemedText style={styles.refreshButtonText}>↻</ThemedText>
-        </TouchableOpacity>
+
       </View>
     </ThemedView>
   );
@@ -610,8 +610,6 @@ const styles = StyleSheet.create({
   
   container: {
     flex: 1,
-    paddingTop: 60,
-    paddingHorizontal: 20,
   },
   header: {
     flexDirection: 'row',
@@ -638,9 +636,7 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     flex: 1,
-    borderRadius: 10,
     overflow: 'hidden',
-    marginBottom: 20,
   },
   map: {
     flex: 1,
