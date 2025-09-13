@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, Animated } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { Colors } from '@/constants/theme';
+import * as Haptics from 'expo-haptics';
+
 
 const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
 
@@ -24,6 +27,9 @@ type ProfileData = {
   username: string;
   team: string;
   image: string;
+  strength?: number;
+  wins?: number;
+  losses?: number;
 };
 
 // Mock enemy avatars based on team colors
@@ -50,6 +56,10 @@ export default function BattleArenaScreen() {
   const [battleResult, setBattleResult] = useState<string | null>(null);
   const [battleTime, setBattleTime] = useState(0);
   
+  // Animation state
+  const [buttonScale] = useState(new Animated.Value(1));
+  const [buttonRotation] = useState(new Animated.Value(0));
+  
   // Battle data
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [strongestOwnerProfile, setStrongestOwnerProfile] = useState<ProfileData | null>(null);
@@ -58,6 +68,8 @@ export default function BattleArenaScreen() {
   // Auth state
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
+
+  // ...existing useEffects and functions remain the same...
 
   useEffect(() => {
     const getAuthData = async () => {
@@ -98,6 +110,10 @@ export default function BattleArenaScreen() {
 
       if (response.ok) {
         const profileData = await response.json();
+        console.log('User profile loaded:', {
+          username: profileData.username,
+          strength: profileData.strength || 10
+        });
         setUserProfile(profileData);
       }
     } catch (error) {
@@ -146,6 +162,10 @@ export default function BattleArenaScreen() {
       if (response.ok) {
         const profileData = await response.json();
         if (profileData && profileData.username) {
+          console.log('Strongest owner profile loaded:', {
+            username: profileData.username,
+            strength: profileData.strength || 10
+          });
           setStrongestOwnerProfile(profileData);
         }
       }
@@ -203,10 +223,95 @@ export default function BattleArenaScreen() {
     setBattleResult(null);
   };
 
+  const calculateDamage = (attackerStrength: number, defenderStrength: number): number => {
+    // Ensure strength values are within valid range (1-100)
+    const validAttackerStrength = Math.max(1, Math.min(100, attackerStrength));
+    const validDefenderStrength = Math.max(1, Math.min(100, defenderStrength));
+    
+    // Calculate strength differential (-99 to +99)
+    const strengthDiff = validAttackerStrength - validDefenderStrength;
+    
+    // Normalize to 0-1 range where:
+    // - Attacker 100 vs Defender 1 = 0.99 (near max damage)
+    // - Attacker 1 vs Defender 100 = 0.01 (near min damage)
+    // - Equal strength = 0.5 (medium damage)
+    const normalizedStrength = (strengthDiff + 99) / 198;
+    
+    // Add randomness (0.3 to 1.0 multiplier)
+    const randomFactor = 0.3 + Math.random() * 0.7;
+    
+    // Calculate final damage (0-4)
+    const baseDamage = normalizedStrength * randomFactor * 4;
+    
+    // Round and ensure it's within 0-4 range
+    return Math.max(0, Math.min(4, Math.round(baseDamage)));
+  };
+
+  // Attack button animation
+  const playAttackAnimation = () => {
+    // Haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Scale and rotation animation
+    Animated.sequence([
+      // Scale down and rotate slightly
+      Animated.parallel([
+        Animated.timing(buttonScale, {
+          toValue: 0.85,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonRotation, {
+          toValue: -0.1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Scale up and rotate back with bounce
+      Animated.parallel([
+        Animated.spring(buttonScale, {
+          toValue: 1.1,
+          tension: 150,
+          friction: 3,
+          useNativeDriver: true,
+        }),
+        Animated.spring(buttonRotation, {
+          toValue: 0.1,
+          tension: 150,
+          friction: 3,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Return to normal
+      Animated.parallel([
+        Animated.spring(buttonScale, {
+          toValue: 1,
+          tension: 100,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+        Animated.spring(buttonRotation, {
+          toValue: 0,
+          tension: 100,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  };
+
   const playerAttack = () => {
     if (battleResult || !battleStarted) return;
 
-    const damage = Math.floor(Math.random() * 20) + 10; // 10-29 damage
+    // Play attack animation and haptic feedback
+    playAttackAnimation();
+
+    const userStrength = userProfile?.strength || 10;
+    const enemyStrength = strongestOwnerProfile?.strength || 10;
+    
+    const damage = calculateDamage(userStrength, enemyStrength);
+    console.log(`Player attack: User strength ${userStrength} vs Enemy strength ${enemyStrength} = ${damage} damage`);
+    
     const newEnemyHealth = Math.max(0, enemyHealth - damage);
     setEnemyHealth(newEnemyHealth);
 
@@ -220,7 +325,12 @@ export default function BattleArenaScreen() {
   const enemyAttack = () => {
     if (battleResult || playerHealth <= 0 || enemyHealth <= 0) return;
 
-    const enemyDamage = Math.floor(Math.random() * 15) + 8; // 8-22 damage
+    const enemyStrength = strongestOwnerProfile?.strength || 10;
+    const userStrength = userProfile?.strength || 10;
+    
+    const enemyDamage = calculateDamage(enemyStrength, userStrength);
+    console.log(`Enemy attack: Enemy strength ${enemyStrength} vs User strength ${userStrength} = ${enemyDamage} damage`);
+    
     setPlayerHealth(prevHealth => {
       const newPlayerHealth = Math.max(0, prevHealth - enemyDamage);
       
@@ -233,6 +343,8 @@ export default function BattleArenaScreen() {
       return newPlayerHealth;
     });
   };
+
+  // ...rest of the existing functions remain the same...
 
   const calculateBattleScore = (result: 'win' | 'lose') => {
     let score = 50; // Base score
@@ -298,8 +410,7 @@ export default function BattleArenaScreen() {
       
       // Update local profile stats IMMEDIATELY after storing cooldown
       await updateLocalProfileStats(result);
-      // console.log(id as string);
-      // console.log(battle)
+
       const response = await fetch(`${databaseUrl}/api/interactions/battle`, {
         method: 'POST',
         headers: {
@@ -448,6 +559,19 @@ export default function BattleArenaScreen() {
   const userInfo = getUserDisplayInfo();
   const enemyInfo = getEnemyDisplayInfo();
 
+  // Calculate animated transform for attack button
+  const animatedButtonStyle = {
+    transform: [
+      { scale: buttonScale },
+      { 
+        rotate: buttonRotation.interpolate({
+          inputRange: [-1, 1],
+          outputRange: ['-5.73deg', '5.73deg'] // -0.1 to 0.1 radians converted to degrees
+        })
+      }
+    ]
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.headerSection}>
@@ -536,14 +660,22 @@ export default function BattleArenaScreen() {
             <Text style={styles.exitButtonText}>Exit Arena</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={styles.attackButton} onPress={playerAttack}>
-            <Text style={styles.attackButtonText}>Attack!</Text>
-          </TouchableOpacity>
+          <Animated.View style={animatedButtonStyle}>
+            <TouchableOpacity 
+              style={styles.attackButton} 
+              onPress={playerAttack}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.attackButtonText}>Attack!</Text>
+            </TouchableOpacity>
+          </Animated.View>
         )}
       </View>
     </View>
   );
 }
+
+// ...existing styles remain the same...
 
 const styles = StyleSheet.create({
   container: {

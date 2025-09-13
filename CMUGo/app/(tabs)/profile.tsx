@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ScrollView, Ref
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/theme';
-import {HashLoader} from 'react-spinners';
 
 const databaseUrl = 'https://unrevetted-larue-undeleterious.ngrok-free.app';
 

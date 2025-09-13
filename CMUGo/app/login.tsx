@@ -173,6 +173,7 @@ export default function LoginScreen() {
           password: password,
           team: selectedTeam,
           image: base64Data,
+          strength: 10,
         }),
       });
 
