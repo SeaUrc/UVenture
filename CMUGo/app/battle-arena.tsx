@@ -95,6 +95,10 @@ export default function BattleArenaScreen() {
   const [basicChargedAttackCharge, setBasicChargedAttackCharge] = useState(0);
   const maxBasicChargedAttackCharge = 10; // Requires 10 charges for basic charged attack
   
+  // Enemy charged attack state
+  const [enemyChargedAttackCharge, setEnemyChargedAttackCharge] = useState(0);
+  const maxEnemyChargedAttackCharge = 4; // Enemies charge faster (4 attacks vs player's 10)
+  
   // Battle data
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [strongestOwnerProfile, setStrongestOwnerProfile] = useState<ProfileData | null>(null);
@@ -632,7 +636,7 @@ const addNeonIntensity = (color: string) => {
     if (battleStarted && !battleResult && enemyHealth > 0 && playerHealth > 0) {
       enemyAttackInterval = setInterval(() => {
         enemyAttack();
-      }, 800 + Math.random() * 1200); // Enemy attacks every 0.8-2 seconds (faster)
+      }, 200 + Math.random() * 200); // Enemy attacks every 0.2-0.4 seconds (extremely aggressive)
     }
 
     return () => {
@@ -685,6 +689,7 @@ const addNeonIntensity = (color: string) => {
     setSparkles([]);
     setSuperAttackCharge(0); // Reset super attack charge for Arts players
     setBasicChargedAttackCharge(0); // Reset basic charged attack charge for all players
+    setEnemyChargedAttackCharge(0); // Reset enemy charged attack charge
     
     // Start button movement after a brief delay
     setTimeout(() => {
@@ -758,11 +763,22 @@ const addNeonIntensity = (color: string) => {
     // Calculate base enemy damage (3-15 range for stronger enemies)
     const baseDamage = normalizedStrength * randomFactor * 6;
     
-    // Give enemies a 2x damage multiplier to make them more threatening
-    const enemyDamage = baseDamage * 2;
+    // Give enemies a 3x damage multiplier to make them much more threatening
+    const enemyDamage = baseDamage * 3;
     
-    // Round and ensure it's within reasonable range (1-15)
-    return Math.max(1, Math.min(15, Math.round(enemyDamage)));
+    // Round and ensure it's within reasonable range (2-25)
+    return Math.max(2, Math.min(25, Math.round(enemyDamage)));
+  };
+
+  const calculateEnemyChargedDamage = (attackerStrength: number, defenderStrength: number): number => {
+    // Base enemy damage calculation
+    const baseDamage = calculateEnemyDamage(attackerStrength, defenderStrength);
+    
+    // Charged attacks do 2.5x more damage than regular enemy attacks
+    const chargedDamage = baseDamage * 2.5;
+    
+    // Round and ensure it's within reasonable range (5-60)
+    return Math.max(5, Math.min(60, Math.round(chargedDamage)));
   };
 
   // Attack button animation with sparkles
@@ -970,10 +986,11 @@ const addNeonIntensity = (color: string) => {
     const enemyStrength = strongestOwnerProfile?.strength || 10;
     const userStrength = userProfile?.strength || 10;
     
-    // Calculate enemy damage without tap count dependency
+    // For now, let's just do regular enemy damage to make sure it works
     const enemyDamage = calculateEnemyDamage(enemyStrength, userStrength);
     
     console.log(`Enemy attack: Enemy strength ${enemyStrength} vs User strength ${userStrength} = ${enemyDamage} damage`);
+    console.log(`Player health before: ${playerHealth}, damage: ${enemyDamage}`);
     
     setPlayerHealth(prevHealth => {
       const newPlayerHealth = Math.max(0, prevHealth - enemyDamage);
@@ -1090,46 +1107,22 @@ const addNeonIntensity = (color: string) => {
       
       if (battleResponse.message === 'win' && result === 'win') {
         await becomeOwner(locationData?.name || 'the location');
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 2743fc6e8af851c29d94f3197090d1ab18931037
           setTimeout(() => {
             setInitialChampionProfile(null);
             router.back();
           }, 1500);
-<<<<<<< HEAD
-=======
-=======
         exitBattle();
->>>>>>> 70910e264d34cb4e354ddc18cd03fcd3a77a7043
->>>>>>> 388a25efa0910f9aa945520d109adc29333db498
->>>>>>> 2743fc6e8af851c29d94f3197090d1ab18931037
+
       } else if (result === 'win') {
         showAlert('Close Victory!', 'You won the battle but the location remains contested. Great effort!', [
           {
             text: 'OK',
             onPress: () => {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
               exitBattle();
-=======
-<<<<<<< HEAD
->>>>>>> 2743fc6e8af851c29d94f3197090d1ab18931037
               setTimeout(() => {
                 setInitialChampionProfile(null);
                 router.back();
               }, 1000);
-<<<<<<< HEAD
-=======
-=======
-              
->>>>>>> 70910e264d34cb4e354ddc18cd03fcd3a77a7043
->>>>>>> 388a25efa0910f9aa945520d109adc29333db498
->>>>>>> 2743fc6e8af851c29d94f3197090d1ab18931037
             }
           }
         ]);
@@ -1141,24 +1134,11 @@ const addNeonIntensity = (color: string) => {
             {
               text: 'OK',
               onPress: () => {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
                 exitBattle();
-=======
-<<<<<<< HEAD
->>>>>>> 2743fc6e8af851c29d94f3197090d1ab18931037
                 setTimeout(() => {
                   setInitialChampionProfile(null);
                   router.back();
                 }, 1000);
-<<<<<<< HEAD
-=======
-=======
-                
->>>>>>> 70910e264d34cb4e354ddc18cd03fcd3a77a7043
->>>>>>> 388a25efa0910f9aa945520d109adc29333db498
->>>>>>> 2743fc6e8af851c29d94f3197090d1ab18931037
               }
             }
           ]

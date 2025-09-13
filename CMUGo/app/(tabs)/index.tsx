@@ -52,11 +52,7 @@ export default function TabTwoScreen() {
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
   const [username, setUsername] = useState<string | null>(null);
-<<<<<<< HEAD
-  const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
-=======
   const [userProfile, setUserProfile] = useState<ProfileData | null>(null);
->>>>>>> 388a25efa0910f9aa945520d109adc29333db498
   
   // Map following state
   const [isFollowingUser, setIsFollowingUser] = useState(true);
@@ -182,14 +178,14 @@ export default function TabTwoScreen() {
 
       const data = await response.json();
       if (data.image) {
-        setUserProfileImage(`data:image/png;base64,${data.image}`);
+        setUserProfile(`data:image/png;base64,${data.image}`);
       } else {
-        setUserProfileImage(null);
+        setUserProfile(null);
       }
     } catch (error) {
       console.error('Error fetching user profile picture:', error);
       // Don't show an alert for this, just fallback to default icon
-      setUserProfileImage(null);
+      setUserProfile(null);
     }
   }, [userToken, userId]);
 
@@ -408,16 +404,6 @@ export default function TabTwoScreen() {
               title="You are here"
             >
               <View style={styles.userLocationMarker}>
-<<<<<<< HEAD
-                <Image 
-                  source={
-                    userProfileImage 
-                      ? { uri: userProfileImage } 
-                      : require('@/assets/images/icon.png')
-                  } 
-                  style={[styles.markerImage, userProfileImage && styles.userProfileImage]}
-                />
-=======
                 {userProfile && userProfile.image ? (
                   <Image 
                     source={{ uri: `data:image/png;base64,${userProfile.image}` }}
@@ -429,7 +415,6 @@ export default function TabTwoScreen() {
                     style={styles.markerImage}
                   />
                 )}
->>>>>>> 388a25efa0910f9aa945520d109adc29333db498
               </View>
             </Marker>
           )}
