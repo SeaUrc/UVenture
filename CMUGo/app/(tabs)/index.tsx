@@ -604,16 +604,35 @@ const handleMarkerPress = (locationData: LocationData) => {
 }
 
 const styles = StyleSheet.create({
+
+  
   container: {
     flex: 1,
     paddingTop: 60,
     paddingHorizontal: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   title: {
     fontFamily: Fonts.rounded,
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
+  },
+  logoutButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#FF3B30',
+    borderRadius: 6,
+  },
+  logoutText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   mapContainer: {
     flex: 1,
