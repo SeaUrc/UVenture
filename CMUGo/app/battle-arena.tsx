@@ -112,112 +112,139 @@ export default function BattleArenaScreen() {
     }
   }, [battleStarted, battleResult]);
 
-  // Get button color based on tap count
-  const getButtonColor = () => {
-    const colors = [
-      '#FF5722', // Default orange
-      '#FF7043', // Light orange
-      '#FF8A65', // Lighter orange
-      '#FFB74D', // Yellow-orange
-      '#FDD835', // Yellow
-      '#CDDC39', // Yellow-green
-      '#8BC34A', // Light green
-      '#4CAF50', // Green
-      '#26A69A', // Teal
-      '#29B6F6', // Light blue
-      '#42A5F5', // Blue
-      '#5C6BC0', // Indigo
-      '#7E57C2', // Deep purple
-      '#AB47BC', // Purple
-      '#EC407A', // Pink
-      '#EF5350', // Red
-    ];
-    
-    const colorIndex = Math.min(tapCount, colors.length - 1);
-    return colors[colorIndex];
-  };
+  // Get button color based on tap coun
 
   // Create sparkles
-  const createSparkles = (count: number, color: string) => {
-    console.log('Creating', count, 'sparkles with color:', color);
+  const createSparkles = (count: number, baseColor: string) => {
+  console.log('Creating', count, 'sparkles with color wave from:', baseColor);
+  
+  const newSparkles: Sparkle[] = [];
+  
+  // Slower, more gradual color progression based on tap count
+  const getColorWave = (tapIndex: number) => {
+    const totalTaps = tapCount;
+    const waveColors = [
+      // Green phase (taps 0-9)
+      '#00FF00', '#32FF32', '#65FF65', '#7FFF00', '#9AFF9A',
+      '#ADFF2F', '#CCFF99', '#98FB98', '#90EE90', '#00FF7F',
+      // Yellow-Green phase (taps 10-19)
+      '#7FFF00', '#CCFF00', '#DFFF00', '#E6FF00', '#EEFF00',
+      '#F4FF00', '#FAFF00', '#FFFF00', '#FFFF32', '#FFFF65',
+      // Yellow phase (taps 20-29)
+      '#FFFF00', '#FFFA00', '#FFF500', '#FFF000', '#FFEB00',
+      '#FFE600', '#FFE100', '#FFDC00', '#FFD700', '#FFD200',
+      // Orange phase (taps 30-39)
+      '#FFCD00', '#FFC800', '#FFC300', '#FFBE00', '#FFB900',
+      '#FFB400', '#FFAF00', '#FFAA00', '#FFA500', '#FFA000',
+      // Red-Orange phase (taps 40-49)
+      '#FF9B00', '#FF9600', '#FF9100', '#FF8C00', '#FF8700',
+      '#FF8200', '#FF7D00', '#FF7800', '#FF7300', '#FF6E00',
+      // Red phase (taps 50+)
+      '#FF6900', '#FF6400', '#FF5F00', '#FF5A00', '#FF5500',
+      '#FF5000', '#FF4B00', '#FF4600', '#FF4100', '#FF3C00',
+      '#FF3700', '#FF3200', '#FF2D00', '#FF2800', '#FF2300',
+      '#FF1E00', '#FF1900', '#FF1400', '#FF0F00', '#FF0A00', '#FF0000'
+    ];
     
-    const newSparkles: Sparkle[] = [];
+    // Make progression slower - divide by 3 to make it take 3x more taps to progress
+    const slowedTapCount = Math.floor(totalTaps / 3);
+    const colorIndex = Math.min(slowedTapCount, waveColors.length - 1);
+    return waveColors[colorIndex];
+  };
+  
+  for (let i = 0; i < count; i++) {
+    // Each sparkle gets the current wave color
+    const baseWaveColor = getColorWave(i);
+    const sparkleColor = addNeonIntensity(baseWaveColor);
     
-    for (let i = 0; i < count; i++) {
-      // Create variations of the base color for more vibrant effect
-      const sparkleColor = getSparkleVariation(color);
-      
-      const sparkle: Sparkle = {
-        id: sparkleIdCounter + i,
-        x: new Animated.Value(0),
-        y: new Animated.Value(0),
-        opacity: new Animated.Value(1),
-        scale: new Animated.Value(0.5), // Start smaller for pop effect
-        color: sparkleColor,
-      };
-      
-      newSparkles.push(sparkle);
-      
-      // More dramatic animation with gravity and spread
-      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 1.2; // More spread
-      const distance = 50 + Math.random() * 80; // Longer travel distance
-      const targetX = Math.cos(angle) * distance + (Math.random() - 0.5) * 30; // Add randomness
-      const targetY = Math.sin(angle) * distance + Math.random() * 20 - 40; // Slight upward bias
-      
-      // Gravity effect - sparkles fall down after initial burst
-      const finalY = targetY + 30 + Math.random() * 50;
-      
-      // Start animations immediately
-      Animated.parallel([
-        // Initial burst movement
-        Animated.sequence([
-          Animated.timing(sparkle.x, {
-            toValue: targetX,
-            duration: 400 + Math.random() * 200,
-            useNativeDriver: true,
-          }),
-          // Slight drift after initial movement
-          Animated.timing(sparkle.x, {
-            toValue: targetX + (Math.random() - 0.5) * 20,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ]),
-        // Y movement with gravity
-        Animated.sequence([
-          Animated.timing(sparkle.y, {
-            toValue: targetY,
-            duration: 300 + Math.random() * 200,
-            useNativeDriver: true,
-          }),
-          // Fall down with gravity
-          Animated.timing(sparkle.y, {
-            toValue: finalY,
-            duration: 500 + Math.random() * 300,
-            useNativeDriver: true,
-          }),
-        ]),
-        // Scale: dramatic pop then shrink
-        Animated.sequence([
-          Animated.spring(sparkle.scale, {
-            toValue: 1.8 + Math.random() * 0.4, // Bigger initial pop
-            tension: 200,
-            friction: 3,
-            useNativeDriver: true,
-          }),
-          Animated.timing(sparkle.scale, {
-            toValue: 0,
-            duration: 600 + Math.random() * 400,
-            useNativeDriver: true,
-          }),
-        ]),
-        // Dramatic fade with flicker
-        Animated.sequence([
-          Animated.delay(100),
-          // Quick flicker effect
+    const sparkle: Sparkle = {
+      id: sparkleIdCounter + i,
+      x: new Animated.Value(0), // Start at center (button position)
+      y: new Animated.Value(0), // Start at center (button position)
+      opacity: new Animated.Value(1),
+      scale: new Animated.Value(0.1),
+      color: sparkleColor,
+    };
+    
+    newSparkles.push(sparkle);
+    
+    // Calculate direction - sparks expand outward in all directions from center
+    const angle = (Math.PI * 2 * i) / count; // Evenly distribute around circle
+    const randomAngleVariation = (Math.random() - 0.5) * 0.3; // Small random variation
+    const finalAngle = angle + randomAngleVariation;
+    
+    // Distance sparks travel outward from button center
+    const baseDistance = 60 + Math.random() * 80; // 60-140px from center
+    const targetX = Math.cos(finalAngle) * baseDistance;
+    const targetY = Math.sin(finalAngle) * baseDistance;
+    
+    // Gravity effect - sparks fall down after expanding
+    const finalY = targetY + 40 + Math.random() * 60;
+    
+    Animated.parallel([
+      // X movement - expand outward from center
+      Animated.sequence([
+        // Fast initial burst outward
+        Animated.timing(sparkle.x, {
+          toValue: targetX * 0.6,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        // Continue expanding
+        Animated.timing(sparkle.x, {
+          toValue: targetX,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        // Slight drift
+        Animated.timing(sparkle.x, {
+          toValue: targetX + (Math.random() - 0.5) * 20,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Y movement - expand outward then fall with gravity
+      Animated.sequence([
+        // Fast initial burst outward
+        Animated.timing(sparkle.y, {
+          toValue: targetY * 0.6,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        // Continue expanding
+        Animated.timing(sparkle.y, {
+          toValue: targetY,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        // Gravity fall
+        Animated.timing(sparkle.y, {
+          toValue: finalY,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Scale animation - sparks grow then shrink
+      Animated.sequence([
+        Animated.spring(sparkle.scale, {
+          toValue: 2.5 + Math.random() * 1.5,
+          tension: 300,
+          friction: 4,
+          useNativeDriver: true,
+        }),
+        Animated.timing(sparkle.scale, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Neon flicker effect
+      Animated.sequence([
+        Animated.delay(30),
+        Animated.loop(
           Animated.sequence([
             Animated.timing(sparkle.opacity, {
-              toValue: 0.7,
+              toValue: 0.3,
               duration: 50,
               useNativeDriver: true,
             }),
@@ -227,43 +254,94 @@ export default function BattleArenaScreen() {
               useNativeDriver: true,
             }),
             Animated.timing(sparkle.opacity, {
-              toValue: 0.8,
-              duration: 50,
+              toValue: 0.5,
+              duration: 40,
               useNativeDriver: true,
             }),
             Animated.timing(sparkle.opacity, {
               toValue: 1,
-              duration: 50,
+              duration: 40,
               useNativeDriver: true,
             }),
           ]),
-          // Final fade out
-          Animated.timing(sparkle.opacity, {
-            toValue: 0,
-            duration: 500 + Math.random() * 300,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]).start();
-    }
-    
-    setSparkleIdCounter(prev => prev + count);
-    
-    // Add sparkles to state immediately
-    setSparkles(prev => {
-      console.log('Previous sparkles:', prev.length, 'Adding:', newSparkles.length);
-      return [...prev, ...newSparkles];
-    });
-    
-    // Clean up old sparkles after animation
-    setTimeout(() => {
-      setSparkles(prev => {
-        const filtered = prev.filter(s => !newSparkles.some(ns => ns.id === s.id));
-        console.log('Cleaning up sparkles, remaining:', filtered.length);
-        return filtered;
-      });
-    }, 1500);
+          { iterations: 3 }
+        ),
+        // Final fade
+        Animated.timing(sparkle.opacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }
+  
+  setSparkleIdCounter(prev => prev + count);
+  setSparkles(prev => [...prev, ...newSparkles]);
+  
+  setTimeout(() => {
+    setSparkles(prev => 
+      prev.filter(s => !newSparkles.some(ns => ns.id === s.id))
+    );
+  }, 1500);
+};
+
+const getButtonColor = () => {
+  const colors = [
+    // Green phase
+    '#00FF00', '#32FF32', '#65FF65', '#7FFF00', '#9AFF9A',
+    '#ADFF2F', '#CCFF99', '#98FB98', '#90EE90', '#00FF7F',
+    // Yellow-Green phase
+    '#7FFF00', '#CCFF00', '#DFFF00', '#E6FF00', '#EEFF00',
+    '#F4FF00', '#FAFF00', '#FFFF00', '#FFFF32', '#FFFF65',
+    // Yellow phase
+    '#FFFF00', '#FFFA00', '#FFF500', '#FFF000', '#FFEB00',
+    '#FFE600', '#FFE100', '#FFDC00', '#FFD700', '#FFD200',
+    // Orange phase
+    '#FFCD00', '#FFC800', '#FFC300', '#FFBE00', '#FFB900',
+    '#FFB400', '#FFAF00', '#FFAA00', '#FFA500', '#FFA000',
+    // Red-Orange phase
+    '#FF9B00', '#FF9600', '#FF9100', '#FF8C00', '#FF8700',
+    '#FF8200', '#FF7D00', '#FF7800', '#FF7300', '#FF6E00',
+    // Red phase
+    '#FF6900', '#FF6400', '#FF5F00', '#FF5A00', '#FF5500',
+    '#FF5000', '#FF4B00', '#FF4600', '#FF4100', '#FF3C00',
+    '#FF3700', '#FF3200', '#FF2D00', '#FF2800', '#FF2300',
+    '#FF1E00', '#FF1900', '#FF1400', '#FF0F00', '#FF0A00', '#FF0000'
+  ];
+  
+  // Same slower progression - divide by 3
+  const slowedTapCount = Math.floor(tapCount / 3);
+  const colorIndex = Math.min(slowedTapCount, colors.length - 1);
+  return colors[colorIndex];
+};
+
+const addNeonIntensity = (color: string) => {
+  // Convert colors to super bright neon versions
+  const neonIntensity = {
+    '#FF4500': '#FF3300', // Bright red-orange
+    '#FF6600': '#FF4400', // Electric orange
+    '#FF8800': '#FF6600', // Neon orange
+    '#FFAA00': '#FF8800', // Bright yellow-orange
+    '#FFCC00': '#FFAA00', // Electric yellow
+    '#FFDD00': '#FFCC00', // Neon yellow
+    '#FFEE00': '#FFDD00', // Bright yellow
+    '#FFFF00': '#FFFF00', // Pure yellow
+    '#FFFF66': '#FFFF33', // Light neon yellow
+    '#FFFF99': '#FFFF66', // Pale neon yellow
+    '#FFFFCC': '#FFFF99', // White-yellow
+    '#FFFFFF': '#FFFFFF', // Pure white
+    '#00FFFF': '#00DDFF', // Electric cyan
+    '#0099FF': '#0077FF', // Neon blue
+    '#6600FF': '#4400FF', // Electric purple
+    '#FF00FF': '#DD00FF', // Neon magenta
+    '#FF0080': '#FF0066', // Electric pink
+    '#FF0040': '#FF0033', // Neon red-pink
+    '#FF0000': '#FF0000', // Pure red
   };
+  
+  return neonIntensity[color] || color;
+};
   
   const getSparkleVariation = (baseColor: string) => {
     const variations = {
@@ -456,28 +534,32 @@ export default function BattleArenaScreen() {
   };
 
   const calculateDamage = (attackerStrength: number, defenderStrength: number): number => {
-    // Ensure strength values are within valid range (1-100)
-    const validAttackerStrength = Math.max(1, Math.min(100, attackerStrength));
-    const validDefenderStrength = Math.max(1, Math.min(100, defenderStrength));
-    
-    // Calculate strength differential (-99 to +99)
-    const strengthDiff = validAttackerStrength - validDefenderStrength;
-    
-    // Normalize to 0-1 range where:
-    // - Attacker 100 vs Defender 1 = 0.99 (near max damage)
-    // - Attacker 1 vs Defender 100 = 0.01 (near min damage)
-    // - Equal strength = 0.5 (medium damage)
-    const normalizedStrength = (strengthDiff + 99) / 198;
-    
-    // Add randomness (0.3 to 1.0 multiplier)
-    const randomFactor = 0.3 + Math.random() * 0.7;
-    
-    // Calculate final damage (0-4)
-    const baseDamage = normalizedStrength * randomFactor * 4;
-    
-    // Round and ensure it's within 0-4 range
-    return Math.max(0, Math.min(4, Math.round(baseDamage)));
-  };
+  // Ensure strength values are within valid range (1-100)
+  const validAttackerStrength = Math.max(1, Math.min(100, attackerStrength));
+  const validDefenderStrength = Math.max(1, Math.min(100, defenderStrength));
+  
+  // Calculate strength differential (-99 to +99)
+  const strengthDiff = validAttackerStrength - validDefenderStrength;
+  
+  // Normalize to 0-1 range where:
+  // - Attacker 100 vs Defender 1 = 0.99 (near max damage)
+  // - Attacker 1 vs Defender 100 = 0.01 (near min damage)
+  // - Equal strength = 0.5 (medium damage)
+  const normalizedStrength = (strengthDiff + 99) / 198;
+  
+  // Tap count multiplier - scales damage based on how many taps player has made
+  // More taps = higher damage multiplier (1.0 to 3.0x)
+  const tapMultiplier = Math.min(1 + (tapCount * 0.1), 3.0); // 10% increase per tap, max 3x
+  
+  // Add randomness (0.3 to 1.0 multiplier)
+  const randomFactor = 0.3 + Math.random() * 0.7;
+  
+  // Calculate final damage (0-12 with tap scaling)
+  const baseDamage = normalizedStrength * randomFactor * 4 * tapMultiplier;
+  
+  // Round and ensure it's within reasonable range (0-12)
+  return Math.max(0, Math.min(12, Math.round(baseDamage)));
+};
 
   // Attack button animation with sparkles
   const playAttackAnimation = () => {
@@ -575,17 +657,19 @@ export default function BattleArenaScreen() {
     const enemyStrength = strongestOwnerProfile?.strength || 10;
     
     const damage = calculateDamage(userStrength, enemyStrength);
-    console.log(`Player attack: User strength ${userStrength} vs Enemy strength ${enemyStrength} = ${damage} damage`);
+    const tapMultiplier = Math.min(1 + (tapCount * 0.1), 3.0);
+    
+    console.log(`Player attack: User strength ${userStrength} vs Enemy strength ${enemyStrength} = ${damage} damage (${tapCount} taps, ${tapMultiplier.toFixed(1)}x multiplier)`);
     
     const newEnemyHealth = Math.max(0, enemyHealth - damage);
     setEnemyHealth(newEnemyHealth);
 
     if (newEnemyHealth <= 0) {
-      setBattleResult('victory');
-      submitBattleResult('win');
-      startCooldown();
+        setBattleResult('victory');
+        submitBattleResult('win');
+        startCooldown();
     }
-  };
+    };
 
   const enemyAttack = () => {
     if (battleResult || playerHealth <= 0 || enemyHealth <= 0) return;
@@ -966,44 +1050,43 @@ export default function BattleArenaScreen() {
           </TouchableOpacity>
         ) : (
           <View style={styles.attackButtonContainer}>
-            {/* Debug info */}
-            {__DEV__ && (
-              <Text style={{ color: 'white', position: 'absolute', top: -30 }}>
-                Sparkles: {sparkles.length}, Taps: {tapCount}
-              </Text>
-            )}
-            
+        
+    
             {/* Sparkles with different shapes */}
             {sparkles.map((sparkle, index) => {
-              const sparkleShape = index % 4; // 4 different shapes
-              return (
-                <Animated.View
-                  key={sparkle.id}
-                  style={[
-                    styles.sparkle,
-                    sparkleShape === 0 && styles.sparkleCircle,
-                    sparkleShape === 1 && styles.sparkleSquare,
-                    sparkleShape === 2 && styles.sparkleDiamond,
-                    sparkleShape === 3 && styles.sparkleStar,
-                    {
-                      backgroundColor: sparkle.color,
-                      shadowColor: sparkle.color,
-                      shadowOpacity: 0.8,
-                      shadowRadius: 4,
-                      shadowOffset: { width: 0, height: 0 },
-                      elevation: 8,
-                      transform: [
-                        { translateX: sparkle.x },
-                        { translateY: sparkle.y },
-                        { scale: sparkle.scale },
-                        { rotate: `${index * 45}deg` }, // Different rotation for each sparkle
-                      ],
-                      opacity: sparkle.opacity,
-                    },
-                  ]}
-                />
-              );
-            })}
+                // Create different spark shapes with random rotation
+                const sparkType = index % 4;
+                const randomRotation = Math.random() * 360; // Random rotation between 0-360 degrees
+                
+                return (
+                    <Animated.View
+                    key={sparkle.id}
+                    style={[
+                        sparkType === 0 ? styles.sparkLine : // Horizontal line
+                        sparkType === 1 ? styles.sparkSlash : // Diagonal slash
+                        sparkType === 2 ? styles.sparkBackslash : // Opposite diagonal
+                        styles.sparkCross, // Cross/plus shape
+                        {
+                        backgroundColor: sparkle.color,
+                        shadowColor: sparkle.color,
+                        shadowOpacity: 1,
+                        shadowRadius: 20,
+                        shadowOffset: { width: 0, height: 0 },
+                        elevation: 30,
+                        borderWidth: 1,
+                        borderColor: sparkle.color,
+                        transform: [
+                            { translateX: sparkle.x },
+                            { translateY: sparkle.y },
+                            { scale: sparkle.scale },
+                            { rotate: `${randomRotation}deg` }, // Add random rotation to each spark
+                        ],
+                        opacity: sparkle.opacity,
+                        },
+                    ]}
+                    />
+                );
+                })}
             
             {/* Attack Button */}
             <Animated.View style={animatedButtonStyle}>
@@ -1094,7 +1177,11 @@ const styles = StyleSheet.create({
   battleField: {
     flex: 1,
     justifyContent: 'center',
+<<<<<<< HEAD
+    minHeight: 150,
+=======
     minHeight: 160,
+>>>>>>> 3ca3c84876a6b3b12a9df4ceda087df4af1f840d
     paddingVertical: 24,
   },
   combatArea: {
@@ -1326,4 +1413,109 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.5,
   },
+  attackButtonContainer: {
+  position: 'relative',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 250,
+  height: 250,
+},
+sparkle: {
+  position: 'absolute',
+  width: 8,
+  height: 8,
+  zIndex: 1000,
+  borderRadius: 4,
+},
+sparkleCircle: {
+  borderRadius: 50,
+},
+sparkleSquare: {
+  borderRadius: 2,
+},
+sparkleDiamond: {
+  borderRadius: 0,
+  transform: [{ rotate: '45deg' }],
+},
+sparkleStar: {
+  borderRadius: 0,
+  width: 6,
+  height: 6,
+},
+fireSparkle: {
+  position: 'absolute',
+  width: 12,
+  height: 12,
+  zIndex: 1000,
+  borderRadius: 0, // Sharp edges like fire sparks
+  // Create sharp diamond/star shape
+},
+innerGlow: {
+  position: 'absolute',
+  width: 6,
+  height: 6,
+  top: 3,
+  left: 3,
+  borderRadius: 0,
+},
+sparkLine: {
+  position: 'absolute',
+  width: 16,
+  height: 3,
+  zIndex: 1000,
+  borderRadius: 1,
+},
+sparkSlash: {
+  position: 'absolute',
+  width: 16,
+  height: 3,
+  zIndex: 1000,
+  borderRadius: 1,
+},
+sparkBackslash: {
+  position: 'absolute',
+  width: 16,
+  height: 3,
+  zIndex: 1000,
+  borderRadius: 1,
+},
+sparkCross: {
+  position: 'absolute',
+  width: 12,
+  height: 3,
+  zIndex: 1000,
+  borderRadius: 1,
+},
+innerGlowLine: {
+  position: 'absolute',
+  width: 12,
+  height: 2,
+  top: 0.5,
+  left: 2,
+  borderRadius: 1,
+},
+innerGlowSlash: {
+  position: 'absolute',
+  width: 12,
+  height: 2,
+  top: 0.5,
+  left: 2,
+  borderRadius: 1,
+},
+innerGlowBackslash: {
+  position: 'absolute',
+  width: 12,
+  height: 2,
+  top: 0.5,
+  left: 2,
+  borderRadius: 1,
+},
+innerGlowCross: {
+  position: 'absolute',
+  width: 8,
+  height: 2,
+  top: 0.5,
+  left: 2,
+  borderRadius: 1,
+},
 });
